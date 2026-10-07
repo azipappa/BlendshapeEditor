@@ -23,7 +23,7 @@ namespace AzipaWorks.BlendshapeEditor
         private const string Title = "Blendshape Editor";
 
         /// <summary>ツールのバージョン（package.json の version と合わせる）</summary>
-        public const string Version = "1.0.0";
+        public const string Version = "1.0.1";
         private const string DefaultFolder = "Assets/BlendshapeEditor_Generated";
         private const string DefaultSuffix = "_orig";
         private const string TopToken = "\u0001TOP";

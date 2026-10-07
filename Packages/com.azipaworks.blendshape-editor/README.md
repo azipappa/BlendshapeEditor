@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Unity-2022.3-222c37?logo=unity&logoColor=white" alt="Unity 2022.3">
   <img src="https://img.shields.io/badge/VRChat-Avatar-2d9bf0" alt="VRChat Avatar">
-  <img src="https://img.shields.io/badge/VPM-1.0.0-6f42c1" alt="VPM 1.0.0">
+  <img src="https://img.shields.io/badge/VPM-1.0.1-6f42c1" alt="VPM 1.0.1">
   <img src="https://img.shields.io/badge/License-VN3%20(Paid)-orange" alt="VN3 License (Paid)">
 </p>
 
