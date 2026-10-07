@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Unity-2022.3-222c37?logo=unity&logoColor=white" alt="Unity 2022.3">
   <img src="https://img.shields.io/badge/VRChat-Avatar-2d9bf0" alt="VRChat Avatar">
-  <img src="https://img.shields.io/badge/VPM-1.0.1-6f42c1" alt="VPM 1.0.1">
+  <img src="https://img.shields.io/badge/VPM-1.0.2-6f42c1" alt="VPM 1.0.2">
   <img src="https://img.shields.io/badge/License-VN3%20(Paid)-orange" alt="VN3 License (Paid)">
 </p>
 
@@ -130,7 +130,7 @@ Tools > Azipa Tools > Blendshape Editor
 
 ### シェイプを作る
 
-1. 「作成」タブで「シェイプ作成」を選びます。
+1. 「作成」タブの「シェイプの種類」で「シェイプ新規作成」を選びます。
 2. 出力シェイプ名を入力します。
    - 「既存シェイプを編集する」をオンにして編集するシェイプを選ぶと、出力名がそのシェイプ名になり、元にするシェイプにそのシェイプ（値100）が入ります。作成済みのシェイプを選んだ場合は、その設定を読み込みます。
 3. 「＋ シェイプを追加」で元にするシェイプを追加し、新シェイプ100のときの値をスライダーで調整します。
@@ -146,7 +146,7 @@ Tools > Azipa Tools > Blendshape Editor
 
 ### UI用シェイプを作る
 
-「作成」タブで「UI用シェイプ作成」を選び、名前と追加する位置を指定して作成します。顔は変形しない空のシェイプで、シェイプキー一覧を見やすく区切るために使います。「整形」で`---- 名前 ----`の形に整えられます。
+「作成」タブの「シェイプの種類」で「UI用シェイプ作成」を選び、名前と追加する位置を指定して作成します。顔は変形しない空のシェイプで、シェイプキー一覧を見やすく区切るために使います。「整形」で`---- 名前 ----`の形に整えられます。
 
 ### 既存の名前で作る（MMD用の名前など）
 

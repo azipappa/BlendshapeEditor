@@ -23,7 +23,7 @@ namespace AzipaWorks.BlendshapeEditor
         private const string Title = "Blendshape Editor";
 
         /// <summary>ツールのバージョン（package.json の version と合わせる）</summary>
-        public const string Version = "1.0.1";
+        public const string Version = "1.0.2";
         private const string DefaultFolder = "Assets/BlendshapeEditor_Generated";
         private const string DefaultSuffix = "_orig";
         private const string TopToken = "\u0001TOP";
@@ -1059,23 +1059,9 @@ namespace AzipaWorks.BlendshapeEditor
 
         private void DrawAvatarRow(AvatarEntry e)
         {
-            using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+            using (var row = new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
             {
-                bool selectable = e.state != ReflectState.Unavailable;
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(16)))
-                using (new EditorGUI.DisabledScope(!selectable))
-                {
-                    GUILayout.FlexibleSpace();
-                    bool on = selectable && _checked.Contains(e.avatar);
-                    bool next = EditorGUILayout.Toggle(on, GUILayout.Width(16));
-                    if (next != on)
-                    {
-                        if (next) _checked.Add(e.avatar);
-                        else _checked.Remove(e.avatar);
-                    }
-
-                    GUILayout.FlexibleSpace();
-                }
+                GUILayout.Space(20); // チェックボックスの場所（描画は最後に行の高さに合わせて行う）
 
                 using (new EditorGUILayout.VerticalScope())
                 {
@@ -1154,18 +1140,29 @@ namespace AzipaWorks.BlendshapeEditor
                         break;
                 }
 
-                // 2 行分の高さの中で上下中央にそろえる
+                GUILayout.Space(104); // 状態の表示の場所
+
+                // チェックボックスと状態は、行の実際の高さの上下中央に置く
+                // （FlexibleSpace で中央寄せすると、スクロールの中では行が画面の高さまで伸びてしまうため）
+                var r = row.rect;
+                bool selectable = e.state != ReflectState.Unavailable;
+                using (new EditorGUI.DisabledScope(!selectable))
+                {
+                    bool on = selectable && _checked.Contains(e.avatar);
+                    bool next = EditorGUI.Toggle(new Rect(r.x + 5f, r.center.y - 8f, 16f, 16f), on);
+                    if (next != on)
+                    {
+                        if (next) _checked.Add(e.avatar);
+                        else _checked.Remove(e.avatar);
+                    }
+                }
+
                 var style = new GUIStyle(EditorStyles.boldLabel)
                 {
                     alignment = TextAnchor.MiddleRight,
                     normal = { textColor = color },
                 };
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(100)))
-                {
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Label(new GUIContent(status, e.reason ?? ""), style, GUILayout.Width(100));
-                    GUILayout.FlexibleSpace();
-                }
+                GUI.Label(new Rect(r.xMax - 106f, r.center.y - 10f, 100f, 20f), new GUIContent(status, e.reason ?? ""), style);
             }
         }
 
@@ -1752,10 +1749,11 @@ namespace AzipaWorks.BlendshapeEditor
 
         private void DrawDraft()
         {
-            EditorGUILayout.Space(8);
+            // 親タブ（作成 / 管理）と見分けやすいよう、子タブの上に見出しを付ける
+            Header("シェイプの種類");
             var kind = (ShapeKind)GUILayout.Toolbar((int)draft.kind, new[]
             {
-                new GUIContent("シェイプ作成", "元にするシェイプを組み合わせて新しいシェイプを作ります"),
+                new GUIContent("シェイプ新規作成", "元にするシェイプを組み合わせて新しいシェイプを作ります"),
                 new GUIContent("UI用シェイプ作成", "シェイプキー一覧を見やすく区切るための空のシェイプです（例: ---- VRCHAT ----）。顔は変形しません"),
             }, GUILayout.Height(22));
             if (kind != draft.kind)
