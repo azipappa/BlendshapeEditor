@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using static AzipaWorks.BlendshapeEditor.BseLocalization;
 
 namespace AzipaWorks.BlendshapeEditor
 {
@@ -87,15 +88,15 @@ namespace AzipaWorks.BlendshapeEditor
         {
             if (!IsLicensed(true))
             {
-                EditorUtility.DisplayDialog("Blendshape Editor", "このコンピュータには Blendshape Editor のライセンスがインストールされていません。", "OK");
+                EditorUtility.DisplayDialog("Blendshape Editor", T("このコンピュータには Blendshape Editor のライセンスがインストールされていません。"), "OK");
                 return;
             }
 
-            if (!EditorUtility.DisplayDialog("Blendshape Editor ライセンス削除",
-                    "このコンピュータから Blendshape Editor のライセンスを削除しますか？\n\n" +
-                    $"もう一度使うには、ライセンスインストーラー（{InstallerFileName}）をインポートし直す必要があります。\n" +
-                    "作成したシェイプ（保存ファイル）は削除されず、アバターでそのまま使えます。",
-                    "削除する", "キャンセル"))
+            if (!EditorUtility.DisplayDialog(T("Blendshape Editor ライセンス削除"),
+                    T("このコンピュータから Blendshape Editor のライセンスを削除しますか？\n\n") +
+                    T("もう一度使うには、ライセンスインストーラー（{0}）をインポートし直す必要があります。\n", InstallerFileName) +
+                    T("作成したシェイプ（保存ファイル）は削除されず、アバターでそのまま使えます。"),
+                    T("削除する"), T("キャンセル")))
                 return;
 
             try
@@ -113,7 +114,7 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             IsLicensed(true);
-            EditorUtility.DisplayDialog("Blendshape Editor", "ライセンスを削除しました。", "OK");
+            EditorUtility.DisplayDialog("Blendshape Editor", T("ライセンスを削除しました。"), "OK");
         }
     }
 }

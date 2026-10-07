@@ -10,6 +10,7 @@ using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 #endif
 using Object = UnityEngine.Object;
+using static AzipaWorks.BlendshapeEditor.BseLocalization;
 
 namespace AzipaWorks.BlendshapeEditor
 {
@@ -23,7 +24,7 @@ namespace AzipaWorks.BlendshapeEditor
         private const string Title = "Blendshape Editor";
 
         /// <summary>ツールのバージョン（package.json の version と合わせる）</summary>
-        public const string Version = "1.0.2";
+        public const string Version = "1.1.0";
         private const string DefaultFolder = "Assets/BlendshapeEditor_Generated";
         private const string DefaultSuffix = "_orig";
         private const string TopToken = "\u0001TOP";
@@ -310,7 +311,7 @@ namespace AzipaWorks.BlendshapeEditor
             var recipe = Recipe;
             if (recipe == null || entries.Count == 0) return;
             var warnings = new List<string>();
-            Undo.SetCurrentGroupName(Title + " (瞬き・視線の付け直し)");
+            Undo.SetCurrentGroupName(Title + T(" (瞬き・視線の付け直し)"));
             int group = Undo.GetCurrentGroup();
             foreach (var e in entries)
             {
@@ -324,7 +325,7 @@ namespace AzipaWorks.BlendshapeEditor
             AssetDatabase.SaveAssets();
             Undo.CollapseUndoOperations(group);
             foreach (var w in warnings) Debug.LogWarning($"[{Title}] {w}");
-            Debug.Log($"[{Title}] {entries.Count} 体のアバターの瞬き・視線を付け直しました。");
+            Debug.Log(T("[{0}] {1} 体のアバターの瞬き・視線を付け直しました。", Title, entries.Count));
             foreach (var e in entries) _checked.Remove(e.avatar);
             InvalidateDuplicates();
         }
@@ -447,18 +448,18 @@ namespace AzipaWorks.BlendshapeEditor
                 if (e.renderer == null)
                 {
                     e.state = ReflectState.Unavailable;
-                    e.reason = $"同じオブジェクト（{targetRenderer.name}）が見つかりません";
+                    e.reason = T("同じオブジェクト（{0}）が見つかりません", targetRenderer.name);
                 }
                 else if (m == file) e.state = ReflectState.Applied;
                 else if (m == null)
                 {
                     e.state = ReflectState.Unavailable;
-                    e.reason = "メッシュが設定されていません";
+                    e.reason = T("メッシュが設定されていません");
                 }
                 else if (!IsCompatible(m))
                 {
                     e.state = ReflectState.Unavailable;
-                    e.reason = "顔のデータの形（頂点数）が違うため反映できません";
+                    e.reason = T("顔のデータの形（頂点数）が違うため反映できません");
                 }
                 else e.state = m == baseMesh ? ReflectState.SameFile : ReflectState.DifferentFile;
 
@@ -504,7 +505,7 @@ namespace AzipaWorks.BlendshapeEditor
         /// <summary>ファイル名（FBX・改変メッシュなど）。メッシュ名が違えば併記する</summary>
         private static string FaceFileLabel(Mesh face)
         {
-            if (face == null) return "（なし）";
+            if (face == null) return T("（なし）");
             var path = AssetDatabase.GetAssetPath(face);
             if (string.IsNullOrEmpty(path)) return face.name;
             var file = Path.GetFileName(path);
@@ -514,10 +515,10 @@ namespace AzipaWorks.BlendshapeEditor
         private static string ShapeListText(ShapeRecipe recipe)
         {
             var names = recipe.shapes.Select(d => d.outputName.Trim()).Where(n => n.Length > 0).ToList();
-            if (names.Count == 0) return "シェイプなし";
+            if (names.Count == 0) return T("シェイプなし");
             return names.Count <= 4
                 ? string.Join("、", names)
-                : string.Join("、", names.Take(4)) + $" ほか {names.Count - 4} 個";
+                : string.Join("、", names.Take(4)) + T(" ほか {0} 個", names.Count - 4);
         }
 
         /// <summary>
@@ -535,7 +536,7 @@ namespace AzipaWorks.BlendshapeEditor
                     : new List<(string, string)>(),
                 ShapeBakeCore.PlanBackups(recipe));
 
-            Undo.RecordObject(r, Title + " (反映)");
+            Undo.RecordObject(r, Title + T(" (反映)"));
             r.sharedMesh = file;
             for (int i = 0; i < file.blendShapeCount; i++)
                 r.SetBlendShapeWeight(i, weights.TryGetValue(file.GetBlendShapeName(i), out var w) ? w : 0f);
@@ -586,14 +587,14 @@ namespace AzipaWorks.BlendshapeEditor
         {
             if (p.mesh == null)
             {
-                warnings.Add($"「{p.avatarName}」の反映前のファイルが見つからないため、記録どおりには戻せませんでした。");
+                warnings.Add(T("「{0}」の反映前のファイルが見つからないため、記録どおりには戻せませんでした。", p.avatarName));
                 return false;
             }
 
             var id = EyelidOwnerId(r);
             if (recipe != null && id != null) recipe.RemoveAvatar(id);
 
-            Undo.RecordObject(r, Title + " (反映前に戻す)");
+            Undo.RecordObject(r, Title + T(" (反映前に戻す)"));
             r.sharedMesh = p.mesh;
             var weights = p.weights.GroupBy(x => x.name).ToDictionary(g => g.Key, g => g.Last().value);
             for (int i = 0; i < p.mesh.blendShapeCount; i++)
@@ -605,7 +606,7 @@ namespace AzipaWorks.BlendshapeEditor
                 var d = r.GetComponentInParent<VRCAvatarDescriptor>(true);
                 if (d != null)
                 {
-                    Undo.RecordObject(d, Title + " (反映前に戻す)");
+                    Undo.RecordObject(d, Title + T(" (反映前に戻す)"));
                     var eye = d.customEyeLookSettings;
                     eye.eyelidsSkinnedMesh = r;
                     eye.eyelidsBlendshapes = (int[])p.eyelids.Clone();
@@ -623,8 +624,8 @@ namespace AzipaWorks.BlendshapeEditor
         {
             var point = Recipe?.LatestRestorePoint(e.rendererId);
             if (point != null)
-                return point.mesh != null ? FaceFileLabel(point.mesh) : "（反映前のファイルが見つかりません。作る前の顔に戻します）";
-            return $"{FaceFileLabel(baseMesh)}（反映前の記録なし・作る前の顔）";
+                return point.mesh != null ? FaceFileLabel(point.mesh) : T("（反映前のファイルが見つかりません。作る前の顔に戻します）");
+            return T("{0}（反映前の記録なし・作る前の顔）", FaceFileLabel(baseMesh));
         }
 
         /// <summary>今のファイルを、チェックしたアバターの「同じオブジェクト」に反映する</summary>
@@ -635,11 +636,11 @@ namespace AzipaWorks.BlendshapeEditor
             if (recipe == null || entries.Count == 0) return;
             Preview.Restore();
             var warnings = new List<string>();
-            Undo.SetCurrentGroupName(Title + " (反映)");
+            Undo.SetCurrentGroupName(Title + T(" (反映)"));
             int group = Undo.GetCurrentGroup();
 
             // 反映前の状態を記録してから反映する（Ctrl+Z で反映を取り消すと、この記録も一緒に消える）
-            Undo.RecordObject(recipe, Title + " (反映)");
+            Undo.RecordObject(recipe, Title + T(" (反映)"));
             var history = new ReflectHistoryEntry { id = Guid.NewGuid().ToString("N"), ticks = DateTime.Now.Ticks };
             foreach (var e in entries) history.points.Add(CaptureRestorePoint(e.renderer));
             recipe.AddReflect(history);
@@ -649,7 +650,7 @@ namespace AzipaWorks.BlendshapeEditor
             AssetDatabase.SaveAssets();
             Undo.CollapseUndoOperations(group);
             foreach (var w in warnings) Debug.LogWarning($"[{Title}] {w}");
-            Debug.Log($"[{Title}] {entries.Count} 体のアバターに反映しました。");
+            Debug.Log(T("[{0}] {1} 体のアバターに反映しました。", Title, entries.Count));
             foreach (var e in entries) _checked.Remove(e.avatar);
             InvalidateDuplicates();
             _dirty = true;
@@ -682,7 +683,7 @@ namespace AzipaWorks.BlendshapeEditor
             {
                 for (int i = 0; i < paths.Count; i++)
                 {
-                    if (i % 20 == 0 && EditorUtility.DisplayCancelableProgressBar(Title, "使っている場所を調べています…",
+                    if (i % 20 == 0 && EditorUtility.DisplayCancelableProgressBar(Title, T("使っている場所を調べています…"),
                             (float)i / paths.Count))
                         return null;
                     if (AssetDatabase.GetDependencies(paths[i], false).Contains(assetPath)) found.Add(paths[i]);
@@ -711,10 +712,10 @@ namespace AzipaWorks.BlendshapeEditor
             if (users.Count > 0)
             {
                 EditorUtility.DisplayDialog(Title,
-                    $"「{file}」は次のアバターが使っているため削除できません。\n\n" +
-                    string.Join("\n", users.Take(10).Select(u => "・" + ShapeBakeCore.FindAvatarRoot(u.transform).name)) +
-                    (users.Count > 10 ? $"\nほか {users.Count - 10} 体" : "") +
-                    "\n\n先に「管理 › アバター管理」で「反映前に戻す」か、別のファイルを反映してください。",
+                    T("「{0}」は次のアバターが使っているため削除できません。\n\n", file) +
+                    string.Join("\n", users.Take(10).Select(u => T("・") + ShapeBakeCore.FindAvatarRoot(u.transform).name)) +
+                    (users.Count > 10 ? T("\nほか {0} 体", users.Count - 10) : "") +
+                    T("\n\n先に「管理 › アバター管理」で「反映前に戻す」か、別のファイルを反映してください。"),
                     "OK");
                 return;
             }
@@ -722,17 +723,17 @@ namespace AzipaWorks.BlendshapeEditor
             var refs = FindProjectReferences(path);
             if (refs == null) return; // 中断
 
-            string message = $"「{file}」を削除しますか？\n" +
-                             "このファイルで作ったシェイプの設定も一緒に削除されます。ファイルはごみ箱に移動します。";
+            string message = T("「{0}」を削除しますか？\n", file) +
+                             T("このファイルで作ったシェイプの設定も一緒に削除されます。ファイルはごみ箱に移動します。");
             if (refs.Count > 0)
-                message += "\n\n⚠ 次のシーン・プレハブがこのファイルを使っています。削除するとそのメッシュが表示されなくなります。\n" +
-                           string.Join("\n", refs.Take(10).Select(x => "・" + x)) +
-                           (refs.Count > 10 ? $"\nほか {refs.Count - 10} 件" : "");
-            if (!EditorUtility.DisplayDialog(Title, message, refs.Count > 0 ? "それでも削除する" : "削除する", "キャンセル"))
+                message += T("\n\n⚠ 次のシーン・プレハブがこのファイルを使っています。削除するとそのメッシュが表示されなくなります。\n") +
+                           string.Join("\n", refs.Take(10).Select(x => T("・") + x)) +
+                           (refs.Count > 10 ? T("\nほか {0} 件", refs.Count - 10) : "");
+            if (!EditorUtility.DisplayDialog(Title, message, refs.Count > 0 ? T("それでも削除する") : T("削除する"), T("キャンセル")))
                 return;
 
-            if (AssetDatabase.MoveAssetToTrash(path)) Debug.Log($"[{Title}] {path} をごみ箱に移動しました。");
-            else Debug.LogError($"[{Title}] {path} を削除できませんでした。");
+            if (AssetDatabase.MoveAssetToTrash(path)) Debug.Log(T("[{0}] {1} をごみ箱に移動しました。", Title, path));
+            else Debug.LogError(T("[{0}] {1} を削除できませんでした。", Title, path));
             InvalidateRecipe();
             InvalidateDuplicates();
             _synced = false;
@@ -746,19 +747,19 @@ namespace AzipaWorks.BlendshapeEditor
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField(
-                    new GUIContent($"{FaceFileLabel(mesh)}：{ShapeListText(recipe)}" + (inUse ? "（使用中）" : ""),
+                    new GUIContent($"{FaceFileLabel(mesh)}：{ShapeListText(recipe)}" + (inUse ? T("（使用中）") : ""),
                         AssetDatabase.GetAssetPath(mesh)),
                     EditorStyles.wordWrappedMiniLabel);
                 if (canUse)
                     using (new EditorGUI.DisabledScope(inUse))
-                        if (GUILayout.Button(new GUIContent("このアバターに使う", "保存済みのファイルをこのアバターに割り当てます"),
+                        if (GUILayout.Button(new GUIContent(T("このアバターに使う"), T("保存済みのファイルをこのアバターに割り当てます")),
                                 GUILayout.Width(120)))
                         {
                             UseSavedFile(mesh, recipe);
                             GUIUtility.ExitGUI();
                         }
 
-                if (GUILayout.Button(new GUIContent("削除", "不要になったファイルを削除します（ごみ箱へ移動）"), GUILayout.Width(44)))
+                if (GUILayout.Button(new GUIContent(T("削除"), T("不要になったファイルを削除します（ごみ箱へ移動）")), GUILayout.Width(44)))
                 {
                     DeleteSavedFile(mesh);
                     GUIUtility.ExitGUI();
@@ -771,7 +772,7 @@ namespace AzipaWorks.BlendshapeEditor
         {
             Preview.Restore();
             var warnings = new List<string>();
-            Undo.RecordObject(recipe, Title + " (反映)");
+            Undo.RecordObject(recipe, Title + T(" (反映)"));
             recipe.AddReflect(new ReflectHistoryEntry
             {
                 id = Guid.NewGuid().ToString("N"),
@@ -801,10 +802,10 @@ namespace AzipaWorks.BlendshapeEditor
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                EditorGUILayout.LabelField("このアバター用に作ったシェイプがあります。もう一度作る必要はありません。",
+                EditorGUILayout.LabelField(T("このアバター用に作ったシェイプがあります。もう一度作る必要はありません。"),
                     EditorStyles.wordWrappedLabel);
                 foreach (var (mesh, recipe) in files) DrawSavedFileRow(mesh, recipe, true);
-                EditorGUILayout.LabelField("不要になったファイルは「削除」で整理できます（「管理 › 設定」からも整理できます）。",
+                EditorGUILayout.LabelField(T("不要になったファイルは「削除」で整理できます（「管理 › 設定」からも整理できます）。"),
                     EditorStyles.miniLabel);
             }
         }
@@ -852,14 +853,14 @@ namespace AzipaWorks.BlendshapeEditor
             var file = AssignedMesh;
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("反映するファイル", GUILayout.Width(130));
+                EditorGUILayout.LabelField(T("反映するファイル"), GUILayout.Width(130));
                 EditorGUILayout.LabelField(new GUIContent(FaceFileLabel(file), AssetDatabase.GetAssetPath(file)),
                     EditorStyles.miniBoldLabel);
             }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(new GUIContent("作る前のファイル", "反映前の記録が無いアバターは、「反映前に戻す」とこのファイルになります"),
+                EditorGUILayout.LabelField(new GUIContent(T("作る前のファイル"), T("反映前の記録が無いアバターは、「反映前に戻す」とこのファイルになります")),
                     GUILayout.Width(130));
                 EditorGUILayout.LabelField(new GUIContent(FaceFileLabel(baseMesh), AssetDatabase.GetAssetPath(baseMesh)),
                     EditorStyles.miniLabel);
@@ -867,8 +868,8 @@ namespace AzipaWorks.BlendshapeEditor
 
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField(new GUIContent(
-                    "チェックを入れて「反映」または「反映前に戻す」を押してください。",
-                    "反映したアバターは、このあと更新した内容も自動で反映されます。どちらの操作も Undo で取り消せます。"),
+                    T("チェックを入れて「反映」または「反映前に戻す」を押してください。"),
+                    T("反映したアバターは、このあと更新した内容も自動で反映されます。どちらの操作も Undo で取り消せます。")),
                 EditorStyles.wordWrappedMiniLabel);
 
             var list = Avatars();
@@ -878,24 +879,24 @@ namespace AzipaWorks.BlendshapeEditor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                GUILayout.Label($"{list.Count} 体（反映済み {revertable.Count}・未反映 {reflectable.Count}）", EditorStyles.miniLabel);
+                GUILayout.Label(T("{0} 体（反映済み {1}・未反映 {2}）", list.Count, revertable.Count, reflectable.Count), EditorStyles.miniLabel);
                 GUILayout.FlexibleSpace();
                 using (new EditorGUI.DisabledScope(reflectable.Count == 0))
-                    if (GUILayout.Button("未反映をすべて選ぶ", EditorStyles.miniButtonLeft, GUILayout.Width(110)))
+                    if (GUILayout.Button(T("未反映をすべて選ぶ"), EditorStyles.miniButtonLeft, GUILayout.Width(110)))
                     {
                         _checked.Clear();
                         foreach (var e in reflectable) _checked.Add(e.avatar);
                     }
 
                 using (new EditorGUI.DisabledScope(revertable.Count == 0))
-                    if (GUILayout.Button("反映済みをすべて選ぶ", EditorStyles.miniButtonMid, GUILayout.Width(120)))
+                    if (GUILayout.Button(T("反映済みをすべて選ぶ"), EditorStyles.miniButtonMid, GUILayout.Width(120)))
                     {
                         _checked.Clear();
                         foreach (var e in revertable) _checked.Add(e.avatar);
                     }
 
                 using (new EditorGUI.DisabledScope(_checked.Count == 0))
-                    if (GUILayout.Button("選択を外す", EditorStyles.miniButtonRight, GUILayout.Width(70)))
+                    if (GUILayout.Button(T("選択を外す"), EditorStyles.miniButtonRight, GUILayout.Width(70)))
                         _checked.Clear();
             }
 
@@ -910,10 +911,10 @@ namespace AzipaWorks.BlendshapeEditor
                 using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
                 {
                     EditorGUILayout.LabelField(
-                        $"瞬き・視線の設定がずれているアバターが {shiftedAll.Count} 体あります。" +
-                        "Avatar Descriptor はシェイプを番号で参照しているため、並び替えでずれます。",
+                        T("瞬き・視線の設定がずれているアバターが {0} 体あります。", shiftedAll.Count) +
+                        T("Avatar Descriptor はシェイプを番号で参照しているため、並び替えでずれます。"),
                         EditorStyles.wordWrappedMiniLabel);
-                    if (GUILayout.Button("選ぶ", GUILayout.Width(44)))
+                    if (GUILayout.Button(T("選ぶ"), GUILayout.Width(44)))
                     {
                         _checked.Clear();
                         foreach (var e in shiftedAll) _checked.Add(e.avatar);
@@ -923,29 +924,29 @@ namespace AzipaWorks.BlendshapeEditor
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(toReflect.Count == 0))
-                    if (GUILayout.Button(new GUIContent(toReflect.Count > 0 ? $"反映（{toReflect.Count} 体）" : "反映",
-                            "チェックした未反映のアバターに、反映するファイルを割り当てます"), GUILayout.Height(30)))
+                    if (GUILayout.Button(new GUIContent(toReflect.Count > 0 ? T("反映（{0} 体）", toReflect.Count) : T("反映"),
+                            T("チェックした未反映のアバターに、反映するファイルを割り当てます")), GUILayout.Height(30)))
                     {
                         var different = toReflect.Where(e => e.state == ReflectState.DifferentFile).ToList();
                         if (different.Count == 0 || EditorUtility.DisplayDialog(Title,
-                                "次のアバターは、作る前のファイルとは異なるファイルを使っています。反映すると顔のデータもこのファイルと同じになります。\n\n" +
-                                string.Join("\n", different.Select(e => $"・{e.avatar.name}（{FaceFileLabel(e.renderer.sharedMesh)}）")) +
-                                "\n\n反映しますか？",
-                                "反映する", "キャンセル"))
+                                T("次のアバターは、作る前のファイルとは異なるファイルを使っています。反映すると顔のデータもこのファイルと同じになります。\n\n") +
+                                string.Join("\n", different.Select(e => T("・{0}（{1}）", e.avatar.name, FaceFileLabel(e.renderer.sharedMesh)))) +
+                                T("\n\n反映しますか？"),
+                                T("反映する"), T("キャンセル")))
                             ReflectTo(toReflect);
                         GUIUtility.ExitGUI();
                     }
 
                 using (new EditorGUI.DisabledScope(toRevert.Count == 0))
-                    if (GUILayout.Button(new GUIContent(toRevert.Count > 0 ? $"反映前に戻す（{toRevert.Count} 体）" : "反映前に戻す",
-                            "チェックした反映済みのアバターを、反映する前の状態（使っていたファイル・値・瞬き/視線）に戻します。保存したファイルは消えません"),
+                    if (GUILayout.Button(new GUIContent(toRevert.Count > 0 ? T("反映前に戻す（{0} 体）", toRevert.Count) : T("反映前に戻す"),
+                            T("チェックした反映済みのアバターを、反映する前の状態（使っていたファイル・値・瞬き/視線）に戻します。保存したファイルは消えません")),
                             GUILayout.Height(30)))
                     {
                         bool includesSelf = toRevert.Any(e => e.isSelf);
                         if (!includesSelf || EditorUtility.DisplayDialog(Title,
-                                "編集中のアバターも反映前に戻します。\n" +
-                                "戻したあとは、このウィンドウの「管理」タブは空になります（ファイルを割り当て直すと再び編集できます）。\n\n戻しますか？",
-                                "戻す", "キャンセル"))
+                                T("編集中のアバターも反映前に戻します。\n") +
+                                T("戻したあとは、このウィンドウの「管理」タブは空になります（ファイルを割り当て直すと再び編集できます）。\n\n戻しますか？"),
+                                T("戻す"), T("キャンセル")))
                             RevertEntries(toRevert);
                         GUIUtility.ExitGUI();
                     }
@@ -953,8 +954,8 @@ namespace AzipaWorks.BlendshapeEditor
 
             if (shiftedAll.Count > 0)
                 using (new EditorGUI.DisabledScope(toFix.Count == 0))
-                    if (GUILayout.Button(new GUIContent(toFix.Count > 0 ? $"瞬き・視線を付け直す（{toFix.Count} 体）" : "瞬き・視線を付け直す",
-                            "チェックしたアバターの Avatar Descriptor の瞬き・視線を、同じ名前のシェイプを指すように付け直します"),
+                    if (GUILayout.Button(new GUIContent(toFix.Count > 0 ? T("瞬き・視線を付け直す（{0} 体）", toFix.Count) : T("瞬き・視線を付け直す"),
+                            T("チェックしたアバターの Avatar Descriptor の瞬き・視線を、同じ名前のシェイプを指すように付け直します")),
                             GUILayout.Height(26)))
                     {
                         FixEyelids(toFix);
@@ -962,7 +963,7 @@ namespace AzipaWorks.BlendshapeEditor
                     }
 
             if (_checked.Count > 0 && toReflect.Count + toRevert.Count + toFix.Count < _checked.Count)
-                EditorGUILayout.HelpBox("チェックしたアバターのうち、操作できないものは対象外になります。", MessageType.None);
+                EditorGUILayout.HelpBox(T("チェックしたアバターのうち、操作できないものは対象外になります。"), MessageType.None);
 
             DrawReflectHistory();
         }
@@ -972,10 +973,10 @@ namespace AzipaWorks.BlendshapeEditor
         {
             var recipe = Recipe;
             if (recipe == null) return;
-            Header("反映の履歴");
+            Header(T("反映の履歴"));
             if (recipe.reflectHistory.Count == 0)
             {
-                EditorGUILayout.LabelField("まだありません。", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(T("まだありません。"), EditorStyles.miniLabel);
                 return;
             }
 
@@ -987,16 +988,16 @@ namespace AzipaWorks.BlendshapeEditor
                 using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
                 {
                     var names = h.points.Select(x => x.avatarName).ToList();
-                    string nameText = names.Count <= 3 ? string.Join("・", names) : string.Join("・", names.Take(3)) + $" ほか {names.Count - 3} 体";
-                    GUILayout.Label(new GUIContent($"{h.Time:MM/dd HH:mm}　{h.points.Count} 体に反映（{nameText}）",
+                    string nameText = names.Count <= 3 ? string.Join(T("・"), names) : string.Join(T("・"), names.Take(3)) + T(" ほか {0} 体", names.Count - 3);
+                    GUILayout.Label(new GUIContent(T("{0:MM/dd HH:mm}　{1} 体に反映（{2}）", h.Time, h.points.Count, nameText),
                         string.Join("\n", names)), EditorStyles.wordWrappedMiniLabel);
                     GUILayout.FlexibleSpace();
                     if (remaining == 0)
                     {
-                        GUILayout.Label("取り消し済み", EditorStyles.miniLabel, GUILayout.Width(130));
+                        GUILayout.Label(T("取り消し済み"), EditorStyles.miniLabel, GUILayout.Width(130));
                     }
-                    else if (GUILayout.Button(new GUIContent(remaining < h.points.Count ? $"残り {remaining} 体を取り消す" : "この反映を取り消す",
-                                 "この回に反映したアバターを、反映前の状態に戻します"), EditorStyles.miniButton, GUILayout.Width(130)))
+                    else if (GUILayout.Button(new GUIContent(remaining < h.points.Count ? T("残り {0} 体を取り消す", remaining) : T("この反映を取り消す"),
+                                 T("この回に反映したアバターを、反映前の状態に戻します")), EditorStyles.miniButton, GUILayout.Width(130)))
                     {
                         undo = h;
                     }
@@ -1020,27 +1021,27 @@ namespace AzipaWorks.BlendshapeEditor
             foreach (var point in h.points.Where(x => !x.restored))
             {
                 var r = ResolveRenderer(point.rendererId);
-                if (r == null) skipped.Add($"・{point.avatarName}（シーンに見つかりません）");
-                else if (r.sharedMesh != file) skipped.Add($"・{point.avatarName}（すでに別のファイルを使っています）");
+                if (r == null) skipped.Add(T("・{0}（シーンに見つかりません）", point.avatarName));
+                else if (r.sharedMesh != file) skipped.Add(T("・{0}（すでに別のファイルを使っています）", point.avatarName));
                 else targets.Add((point, r));
             }
 
             if (targets.Count == 0)
             {
-                EditorUtility.DisplayDialog(Title, "取り消せるアバターがありません。\n\n" + string.Join("\n", skipped), "OK");
+                EditorUtility.DisplayDialog(Title, T("取り消せるアバターがありません。\n\n") + string.Join("\n", skipped), "OK");
                 return;
             }
 
-            string message = $"{h.Time:MM/dd HH:mm} の反映を取り消し、次のアバターを反映前の状態に戻します。\n\n" +
-                             string.Join("\n", targets.Select(t => $"・{t.point.avatarName}　→ {FaceFileLabel(t.point.mesh)}"));
-            if (skipped.Count > 0) message += "\n\n次のアバターは対象外です：\n" + string.Join("\n", skipped);
-            if (!EditorUtility.DisplayDialog(Title, message, "取り消す", "キャンセル")) return;
+            string message = T("{0:MM/dd HH:mm} の反映を取り消し、次のアバターを反映前の状態に戻します。\n\n", h.Time) +
+                             string.Join("\n", targets.Select(t => T("・{0}　→ {1}", t.point.avatarName, FaceFileLabel(t.point.mesh))));
+            if (skipped.Count > 0) message += T("\n\n次のアバターは対象外です：\n") + string.Join("\n", skipped);
+            if (!EditorUtility.DisplayDialog(Title, message, T("取り消す"), T("キャンセル"))) return;
 
             Preview.Restore();
             var warnings = new List<string>();
-            Undo.SetCurrentGroupName(Title + " (反映の取り消し)");
+            Undo.SetCurrentGroupName(Title + T(" (反映の取り消し)"));
             int group = Undo.GetCurrentGroup();
-            Undo.RecordObject(recipe, Title + " (反映の取り消し)");
+            Undo.RecordObject(recipe, Title + T(" (反映の取り消し)"));
             var fallback = new List<SkinnedMeshRenderer>();
             foreach (var (point, r) in targets)
                 if (!RestoreFromPoint(r, point, recipe, warnings))
@@ -1050,7 +1051,7 @@ namespace AzipaWorks.BlendshapeEditor
             Undo.CollapseUndoOperations(group);
             if (fallback.Count > 0) RevertRenderers(fallback); // 記録したファイルが無いものは作る前の顔へ
             foreach (var w in warnings) Debug.LogWarning($"[{Title}] {w}");
-            Debug.Log($"[{Title}] {targets.Count} 体の反映を取り消しました。");
+            Debug.Log(T("[{0}] {1} 体の反映を取り消しました。", Title, targets.Count));
             InvalidateRecipe();
             InvalidateDuplicates();
             _synced = false;
@@ -1065,9 +1066,9 @@ namespace AzipaWorks.BlendshapeEditor
 
                 using (new EditorGUILayout.VerticalScope())
                 {
-                    string name = e.avatar.name + (e.isSelf ? "（編集中）" : "") +
-                                  (e.avatar.activeInHierarchy ? "" : "（非表示）");
-                    if (GUILayout.Button(new GUIContent(name, "クリックで Hierarchy で選択"), RowTitle, GUILayout.MinWidth(100)))
+                    string name = e.avatar.name + (e.isSelf ? T("（編集中）") : "") +
+                                  (e.avatar.activeInHierarchy ? "" : T("（非表示）"));
+                    if (GUILayout.Button(new GUIContent(name, T("クリックで Hierarchy で選択")), RowTitle, GUILayout.MinWidth(100)))
                     {
                         Selection.activeGameObject = e.renderer != null ? e.renderer.gameObject : e.avatar;
                         EditorGUIUtility.PingObject(Selection.activeGameObject);
@@ -1078,9 +1079,9 @@ namespace AzipaWorks.BlendshapeEditor
                     else
                     {
                         var used = e.renderer.sharedMesh;
-                        string compare = e.state == ReflectState.Applied ? "反映するファイルと同じ"
-                            : e.state == ReflectState.SameFile ? "元のファイルと同じ"
-                            : e.state == ReflectState.DifferentFile ? "元のファイルと異なる"
+                        string compare = e.state == ReflectState.Applied ? T("反映するファイルと同じ")
+                            : e.state == ReflectState.SameFile ? T("元のファイルと同じ")
+                            : e.state == ReflectState.DifferentFile ? T("元のファイルと異なる")
                             : e.reason;
                         detail = $"{e.renderer.name}：{FaceFileLabel(used)}（{compare}）";
                     }
@@ -1091,8 +1092,8 @@ namespace AzipaWorks.BlendshapeEditor
                         e.renderer != null ? AssetDatabase.GetAssetPath(e.renderer.sharedMesh) : ""), detailStyle);
 
                     if (e.state == ReflectState.Applied)
-                        GUILayout.Label(new GUIContent($"戻すと：{RevertDestinationLabel(e)}",
-                            "「反映前に戻す」を押したときに戻る先です"), EditorStyles.miniLabel);
+                        GUILayout.Label(new GUIContent(T("戻すと：{0}", RevertDestinationLabel(e)),
+                            T("「反映前に戻す」を押したときに戻る先です")), EditorStyles.miniLabel);
 
                     if (e.eyelid != EyelidState.NotUsed)
                     {
@@ -1101,18 +1102,18 @@ namespace AzipaWorks.BlendshapeEditor
                         switch (e.eyelid)
                         {
                             case EyelidState.Ok:
-                                eyeText = "瞬き・視線：✓ 正しい";
-                                eyeTip = "Avatar Descriptor の瞬き・視線は今の並びに合っています";
+                                eyeText = T("瞬き・視線：✓ 正しい");
+                                eyeTip = T("Avatar Descriptor の瞬き・視線は今の並びに合っています");
                                 eyeColor = EditorStyles.miniLabel.normal.textColor;
                                 break;
                             case EyelidState.Shifted:
-                                eyeText = "瞬き・視線：⚠ ずれています（並び替え前の設定のまま）";
-                                eyeTip = "Avatar Descriptor はシェイプを番号で参照しているため、並び替えでずれています。チェックして「瞬き・視線を付け直す」を押してください";
+                                eyeText = T("瞬き・視線：⚠ ずれています（並び替え前の設定のまま）");
+                                eyeTip = T("Avatar Descriptor はシェイプを番号で参照しているため、並び替えでずれています。チェックして「瞬き・視線を付け直す」を押してください");
                                 eyeColor = new Color(1f, 0.55f, 0.2f);
                                 break;
                             default:
-                                eyeText = "瞬き・視線：？ 確認できません";
-                                eyeTip = "並び替えたときにこのアバターを開いていなかったため、ずれているか判断できません。Avatar Descriptor の瞬き・視線を確認してください";
+                                eyeText = T("瞬き・視線：？ 確認できません");
+                                eyeTip = T("並び替えたときにこのアバターを開いていなかったため、ずれているか判断できません。Avatar Descriptor の瞬き・視線を確認してください");
                                 eyeColor = new Color(0.8f, 0.8f, 0.5f);
                                 break;
                         }
@@ -1127,15 +1128,15 @@ namespace AzipaWorks.BlendshapeEditor
                 switch (e.state)
                 {
                     case ReflectState.Applied:
-                        status = "✓ 反映済み";
+                        status = T("✓ 反映済み");
                         color = new Color(0.35f, 0.8f, 0.4f);
                         break;
                     case ReflectState.Unavailable:
-                        status = "反映できません";
+                        status = T("反映できません");
                         color = new Color(0.65f, 0.65f, 0.65f);
                         break;
                     default:
-                        status = "未反映";
+                        status = T("未反映");
                         color = new Color(1f, 0.6f, 0.2f);
                         break;
                 }
@@ -1174,7 +1175,7 @@ namespace AzipaWorks.BlendshapeEditor
         {
             if (r != null && !IsSceneRenderer(r))
             {
-                EditorUtility.DisplayDialog(Title, "シーン上のオブジェクトを指定してください（Project 内のプレハブは編集できません）。", "OK");
+                EditorUtility.DisplayDialog(Title, T("シーン上のオブジェクトを指定してください（Project 内のプレハブは編集できません）。"), "OK");
                 return;
             }
 
@@ -1249,7 +1250,7 @@ namespace AzipaWorks.BlendshapeEditor
                 Preview.Restore();
                 Debug.LogException(e);
                 previewEnabled = false;
-                Debug.LogError($"[{Title}] プレビューを表示できなかったため、プレビューを OFF にしました。");
+                Debug.LogError(T("[{0}] プレビューを表示できなかったため、プレビューを OFF にしました。", Title));
             }
 
             SceneView.RepaintAll();
@@ -1257,7 +1258,7 @@ namespace AzipaWorks.BlendshapeEditor
 
         private float PreviewWeight() => previewValue;
 
-        private string PreviewLabel() => $"{Key(draft)}  値 {previewValue:0}";
+        private string PreviewLabel() => T("{0}  値 {1:0}", Key(draft), previewValue);
 
         private enum PreviewState
         {
@@ -1279,10 +1280,10 @@ namespace AzipaWorks.BlendshapeEditor
         {
             switch (state)
             {
-                case PreviewState.Showing: return $"●  プレビュー中　{PreviewLabel()}";
-                case PreviewState.Off: return "○  プレビュー OFF　実際のメッシュを表示中";
-                case PreviewState.Waiting: return "○  待機中　出力シェイプ名と元にするシェイプを設定してください";
-                default: return "○  実際のメッシュを表示中";
+                case PreviewState.Showing: return T("●  プレビュー中　{0}", PreviewLabel());
+                case PreviewState.Off: return T("○  プレビュー OFF　実際のメッシュを表示中");
+                case PreviewState.Waiting: return T("○  待機中　出力シェイプ名と元にするシェイプを設定してください");
+                default: return T("○  実際のメッシュを表示中");
             }
         }
 
@@ -1313,7 +1314,7 @@ namespace AzipaWorks.BlendshapeEditor
             EditorGUI.DrawRect(rect, StateColor(state));
             var content = new GUIContent(StatusText(state) + suffix,
                 state == PreviewState.Showing
-                    ? "表示のために顔のデータを一時的に差し替えています。保存・ウィンドウを閉じる・シーン保存・再生で自動的に元に戻ります"
+                    ? T("表示のために顔のデータを一時的に差し替えています。保存・ウィンドウを閉じる・シーン保存・再生で自動的に元に戻ります")
                     : "");
             GUI.Label(rect, content, StatusStyle);
         }
@@ -1352,14 +1353,14 @@ namespace AzipaWorks.BlendshapeEditor
         {
             if (draft.kind == ShapeKind.Separator && !string.IsNullOrWhiteSpace(draft.outputName) &&
                 baseMesh != null && baseMesh.GetBlendShapeIndex(Key(draft)) >= 0)
-                return $"「{Key(draft)}」は既存のシェイプと同じ名前です。UI用シェイプには別の名前を付けてください。";
+                return T("「{0}」は既存のシェイプと同じ名前です。UI用シェイプには別の名前を付けてください。", Key(draft));
             var mine = new HashSet<string>(DraftOutputs());
             foreach (var d in SavedShapes)
             {
                 if (Key(d) == Key(draft)) continue;
                 foreach (var n in ShapeBakeCore.OutputNames(Key(d), d.split))
                     if (mine.Contains(n))
-                        return $"「{n}」は作成済みの「{Key(d)}」と名前が重複しています。出力シェイプ名を変えてください。";
+                        return T("「{0}」は作成済みの「{1}」と名前が重複しています。出力シェイプ名を変えてください。", n, Key(d));
             }
 
             return null;
@@ -1452,7 +1453,7 @@ namespace AzipaWorks.BlendshapeEditor
 
             EditorGUILayout.Space(4);
             if ((int)tab > (int)Tab.Manage) tab = Tab.Manage; // 以前の 4 タブ構成からの移行
-            var newTab = (Tab)GUILayout.Toolbar((int)tab, new[] { "作成", "管理" }, GUILayout.Height(24));
+            var newTab = (Tab)GUILayout.Toolbar((int)tab, new[] { T("作成"), T("管理") }, GUILayout.Height(24));
             if (newTab != tab)
             {
                 tab = newTab;
@@ -1473,7 +1474,7 @@ namespace AzipaWorks.BlendshapeEditor
                     // 表示順: 作成シェイプ一覧 / 並び順 / アバター管理 / 設定
                     var subOrder = new[] { ManageTab.Shapes, ManageTab.Order, ManageTab.Avatars, ManageTab.Settings };
                     int cur = Array.IndexOf(subOrder, manageTab);
-                    int next = GUILayout.Toolbar(Mathf.Max(0, cur), new[] { "作成シェイプ一覧", "並び順", "アバター管理", "設定" },
+                    int next = GUILayout.Toolbar(Mathf.Max(0, cur), new[] { T("作成シェイプ一覧"), T("並び順"), T("アバター管理"), T("設定") },
                         EditorStyles.miniButton, GUILayout.Height(20));
                     if (subOrder[next] != manageTab)
                     {
@@ -1516,12 +1517,19 @@ namespace AzipaWorks.BlendshapeEditor
 
         private static GUIStyle _footerStyle;
 
-        /// <summary>ウィンドウ右下のツール名とバージョン（他の Azipa Tools と同じ表示）</summary>
+        /// <summary>ウィンドウ下の表示言語と、右下のツール名とバージョン（他の Azipa Tools と同じ表示）</summary>
         private static void DrawFooter()
         {
             if (_footerStyle == null)
                 _footerStyle = new GUIStyle(EditorStyles.centeredGreyMiniLabel) { alignment = TextAnchor.MiddleRight };
-            EditorGUILayout.LabelField($"{Title}  v{Version}", _footerStyle, GUILayout.ExpandWidth(true), GUILayout.Height(14f));
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                // 表示言語（ライセンスの画面や空の状態でも切り替えられるよう、常に表示する）
+                EditorGUI.BeginChangeCheck();
+                int lang = EditorGUILayout.Popup((int)Language, LanguageLabels, EditorStyles.miniPullDown, GUILayout.Width(90f));
+                if (EditorGUI.EndChangeCheck()) Language = (BseLanguage)lang;
+                EditorGUILayout.LabelField($"{Title}  v{Version}", _footerStyle, GUILayout.ExpandWidth(true), GUILayout.Height(14f));
+            }
         }
 
         private static GUIStyle _emptyTitleStyle, _emptyBodyStyle;
@@ -1550,18 +1558,18 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             EditorGUILayout.Space(10);
-            GUILayout.Label("Blendshape Editor のライセンスが見つかりません", EmptyTitleStyle);
+            GUILayout.Label(T("Blendshape Editor のライセンスが見つかりません"), EmptyTitleStyle);
             EditorGUILayout.Space(6);
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUILayout.Space(16);
                 EditorGUILayout.HelpBox(
-                    "このコンピュータには Blendshape Editor の使用が許諾されていません。\n" +
-                    $"Booth で Blendshape Editor を購入し、ダウンロードした ZIP に入っている「{BlendshapeEditorLicense.InstallerFileName}」を" +
-                    "Unity にインポートしてください（この作業は 1 台のコンピュータにつき 1 回だけ必要です）。\n\n" +
-                    "購入済みなのにこの画面が表示される場合は、Booth から最新の ZIP をダウンロードして、" +
-                    "ライセンスインストーラーをインポートし直してください。\n\n" +
-                    "作成済みのシェイプ（保存ファイル）は、ライセンスが無くてもアバターでそのまま使えます。",
+                    T("このコンピュータには Blendshape Editor の使用が許諾されていません。\n") +
+                    T("Booth で Blendshape Editor を購入し、ダウンロードした ZIP に入っている「{0}」を", BlendshapeEditorLicense.InstallerFileName) +
+                    T("Unity にインポートしてください（この作業は 1 台のコンピュータにつき 1 回だけ必要です）。\n\n") +
+                    T("購入済みなのにこの画面が表示される場合は、Booth から最新の ZIP をダウンロードして、") +
+                    T("ライセンスインストーラーをインポートし直してください。\n\n") +
+                    T("作成済みのシェイプ（保存ファイル）は、ライセンスが無くてもアバターでそのまま使えます。"),
                     MessageType.Warning);
                 GUILayout.Space(16);
             }
@@ -1572,9 +1580,9 @@ namespace AzipaWorks.BlendshapeEditor
                 GUILayout.FlexibleSpace();
                 bool hasUrl = !string.IsNullOrEmpty(BlendshapeEditorLicense.BoothUrl);
                 using (new EditorGUI.DisabledScope(!hasUrl))
-                    if (GUILayout.Button(hasUrl ? "Booth で購入する" : "Booth（準備中）", GUILayout.Width(160), GUILayout.Height(28)))
+                    if (GUILayout.Button(hasUrl ? T("Booth で購入する") : T("Booth（準備中）"), GUILayout.Width(160), GUILayout.Height(28)))
                         Application.OpenURL(BlendshapeEditorLicense.BoothUrl);
-                if (GUILayout.Button(new GUIContent("ライセンスを再確認", "ライセンスをインストールした直後に押してください"),
+                if (GUILayout.Button(new GUIContent(T("ライセンスを再確認"), T("ライセンスをインストールした直後に押してください")),
                         GUILayout.Width(140), GUILayout.Height(28)))
                     BlendshapeEditorLicense.IsLicensed(true);
                 GUILayout.FlexibleSpace();
@@ -1606,11 +1614,11 @@ namespace AzipaWorks.BlendshapeEditor
                 y += size + gap;
             }
 
-            GUI.Label(new Rect(area.x + 16, y, area.width - 32, titleH), "対象メッシュを指定してください", EmptyTitleStyle);
+            GUI.Label(new Rect(area.x + 16, y, area.width - 32, titleH), T("対象メッシュを指定してください"), EmptyTitleStyle);
             y += titleH;
             GUI.Label(new Rect(area.x + 16, y, area.width - 32, bodyH),
-                "シェイプキーを持つ顔の SkinnedMeshRenderer を、上の欄にドラッグ＆ドロップするか、\n" +
-                "Hierarchy で選んで「選択中」を押してください。", EmptyBodyStyle);
+                T("シェイプキーを持つ顔の SkinnedMeshRenderer を、上の欄にドラッグ＆ドロップするか、\n") +
+                T("Hierarchy で選んで「選択中」を押してください。"), EmptyBodyStyle);
         }
 
         private static void Header(string text)
@@ -1631,7 +1639,7 @@ namespace AzipaWorks.BlendshapeEditor
             EditorGUILayout.Space(6);
             using (new EditorGUILayout.HorizontalScope())
             {
-                var r = (SkinnedMeshRenderer)EditorGUILayout.ObjectField("対象メッシュ", targetRenderer,
+                var r = (SkinnedMeshRenderer)EditorGUILayout.ObjectField(T("対象メッシュ"), targetRenderer,
                     typeof(SkinnedMeshRenderer), true);
                 if (r != targetRenderer) TryLoad(r);
 
@@ -1639,7 +1647,7 @@ namespace AzipaWorks.BlendshapeEditor
                     ? Selection.activeGameObject.GetComponent<SkinnedMeshRenderer>()
                     : null;
                 using (new EditorGUI.DisabledScope(!IsSceneRenderer(sel)))
-                    if (GUILayout.Button("選択中", GUILayout.Width(52))) TryLoad(sel);
+                    if (GUILayout.Button(T("選択中"), GUILayout.Width(52))) TryLoad(sel);
             }
 
             if (targetRenderer == null)
@@ -1648,10 +1656,10 @@ namespace AzipaWorks.BlendshapeEditor
             }
             else if (_baseMissing)
                 EditorGUILayout.HelpBox(
-                    "シェイプを作る前の顔のデータ（FBX など）が見つかりません。削除・移動していないか確認してください。\n" +
-                    "このデータが無いとシェイプを正しく作り直せないため、編集できません。", MessageType.Error);
+                    T("シェイプを作る前の顔のデータ（FBX など）が見つかりません。削除・移動していないか確認してください。\n") +
+                    T("このデータが無いとシェイプを正しく作り直せないため、編集できません。"), MessageType.Error);
             else if (baseMesh == null || baseMesh.blendShapeCount == 0)
-                EditorGUILayout.HelpBox("このメッシュにはシェイプキーがありません。", MessageType.Warning);
+                EditorGUILayout.HelpBox(T("このメッシュにはシェイプキーがありません。"), MessageType.Warning);
             else
             {
                 // 使用中のファイルを 1 行で
@@ -1659,11 +1667,11 @@ namespace AzipaWorks.BlendshapeEditor
                 var recipe = Recipe;
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField("使用中のファイル", GUILayout.Width(130));
+                    EditorGUILayout.LabelField(T("使用中のファイル"), GUILayout.Width(130));
                     EditorGUILayout.LabelField(new GUIContent(
                             FaceFileLabel(assigned) + (recipe != null
-                                ? $"（作ったシェイプ {recipe.shapes.Count} 個）"
-                                : "（まだシェイプを作っていません）"),
+                                ? T("（作ったシェイプ {0} 個）", recipe.shapes.Count)
+                                : T("（まだシェイプを作っていません）")),
                             AssetDatabase.GetAssetPath(assigned)),
                         EditorStyles.miniLabel);
                 }
@@ -1708,18 +1716,18 @@ namespace AzipaWorks.BlendshapeEditor
 
         private string InsertLabel()
         {
-            if (insertAfter == TopToken) return "先頭";
-            if (!string.IsNullOrEmpty(insertAfter)) return $"「{insertAfter}」の下";
+            if (insertAfter == TopToken) return T("先頭");
+            if (!string.IsNullOrEmpty(insertAfter)) return T("「{0}」の下", insertAfter);
             bool exists = DraftOutputs().Any(n => CurrentOrderNames().Contains(n));
-            return exists ? "変更しない（今の位置）" : "末尾（退避用の見出しの上）";
+            return exists ? T("変更しない（今の位置）") : T("末尾（退避用の見出しの上）");
         }
 
         private void DrawInsertPosition()
         {
-            Header("追加する位置");
+            Header(T("追加する位置"));
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.PrefixLabel(new GUIContent("位置", "完成したシェイプキー一覧の中で、どこに入れるかを選びます"));
+                EditorGUILayout.PrefixLabel(new GUIContent(T("位置"), T("完成したシェイプキー一覧の中で、どこに入れるかを選びます")));
                 var label = new GUIContent(InsertLabel());
                 var rect = GUILayoutUtility.GetRect(label, EditorStyles.popup);
                 if (GUI.Button(rect, label, EditorStyles.popup))
@@ -1727,34 +1735,34 @@ namespace AzipaWorks.BlendshapeEditor
                     var outs = new HashSet<string>(DraftOutputs());
                     var items = new List<(string name, string label)>
                     {
-                        ("", "既定の位置（新規は末尾、既存は今の位置）"),
-                        (TopToken, "先頭"),
+                        ("", T("既定の位置（新規は末尾、既存は今の位置）")),
+                        (TopToken, T("先頭")),
                     };
-                    items.AddRange(CurrentOrderNames().Where(n => !outs.Contains(n)).Select(n => (n, $"{n} の下")));
+                    items.AddRange(CurrentOrderNames().Where(n => !outs.Contains(n)).Select(n => (n, T("{0} の下", n))));
                     new ShapeNameDropdown(items, n =>
                     {
                         Undo.RecordObject(this, Title);
                         insertAfter = n;
                         Repaint();
-                    }, "シェイプキーがありません").Show(rect);
+                    }, T("シェイプキーがありません")).Show(rect);
                 }
             }
 
             if (!string.IsNullOrEmpty(insertAfter))
                 EditorGUILayout.LabelField(
-                    "途中に入れると、後ろのシェイプの番号がずれます。編集中のアバターの瞬き・視線は自動で付け直します" +
-                    "（他のアバターは「管理 › アバター管理」で付け直せます）。",
+                    T("途中に入れると、後ろのシェイプの番号がずれます。編集中のアバターの瞬き・視線は自動で付け直します") +
+                    T("（他のアバターは「管理 › アバター管理」で付け直せます）。"),
                     EditorStyles.wordWrappedMiniLabel);
         }
 
         private void DrawDraft()
         {
             // 親タブ（作成 / 管理）と見分けやすいよう、子タブの上に見出しを付ける
-            Header("シェイプの種類");
+            Header(T("シェイプの種類"));
             var kind = (ShapeKind)GUILayout.Toolbar((int)draft.kind, new[]
             {
-                new GUIContent("シェイプ新規作成", "元にするシェイプを組み合わせて新しいシェイプを作ります"),
-                new GUIContent("UI用シェイプ作成", "シェイプキー一覧を見やすく区切るための空のシェイプです（例: ---- VRCHAT ----）。顔は変形しません"),
+                new GUIContent(T("シェイプ作成・上書き編集"), T("元にするシェイプを組み合わせて、新しいシェイプを作ったり既存のシェイプを上書きしたりします")),
+                new GUIContent(T("UI用シェイプ作成"), T("シェイプキー一覧を見やすく区切るための空のシェイプです（例: ---- VRCHAT ----）。顔は変形しません")),
             }, GUILayout.Height(22));
             if (kind != draft.kind)
             {
@@ -1767,7 +1775,7 @@ namespace AzipaWorks.BlendshapeEditor
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button(new GUIContent("クリア", "入力内容を消して新しく作り始めます"),
+                if (GUILayout.Button(new GUIContent(T("クリア"), T("入力内容を消して新しく作り始めます")),
                         EditorStyles.miniButton, GUILayout.Width(60)))
                 {
                     draft = new ShapeDefinition { kind = draft.kind };
@@ -1780,37 +1788,37 @@ namespace AzipaWorks.BlendshapeEditor
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    draft.outputName = EditorGUILayout.TextField(new GUIContent("UI用シェイプの名前", "例: ---- 表情 ----"),
+                    draft.outputName = EditorGUILayout.TextField(new GUIContent(T("UI用シェイプの名前"), T("例: ---- 表情 ----")),
                         draft.outputName);
-                    if (GUILayout.Button(new GUIContent("整形", "「---- 名前 ----」の形に整えます"), EditorStyles.miniButton,
+                    if (GUILayout.Button(new GUIContent(T("整形"), T("「---- 名前 ----」の形に整えます")), EditorStyles.miniButton,
                             GUILayout.Width(40)))
                     {
                         var core = draft.outputName.Trim().Trim('-', '=', ' ', '　');
-                        draft.outputName = $"---- {(core.Length > 0 ? core : "区切り")} ----";
+                        draft.outputName = $"---- {(core.Length > 0 ? core : T("区切り"))} ----";
                         GUI.changed = true;
                     }
                 }
 
-                EditorGUILayout.LabelField("UI用シェイプは顔を変形しない空のシェイプです。シェイプキー一覧を見やすく区切るために使います。",
+                EditorGUILayout.LabelField(T("UI用シェイプは顔を変形しない空のシェイプです。シェイプキー一覧を見やすく区切るために使います。"),
                     EditorStyles.wordWrappedMiniLabel);
                 var sepConflict = DraftConflict();
                 if (sepConflict != null) EditorGUILayout.HelpBox(sepConflict, MessageType.Error);
                 else if (SavedWithSameName != null)
-                    EditorGUILayout.HelpBox($"作成済みの「{Key(draft)}」を上書きします。", MessageType.None);
+                    EditorGUILayout.HelpBox(T("作成済みの「{0}」を上書きします。", Key(draft)), MessageType.None);
                 DrawInsertPosition();
                 return;
             }
 
-            editExisting = EditorGUILayout.ToggleLeft(new GUIContent("既存シェイプを編集する",
-                "選んだシェイプと同じ名前で出力し、元にするシェイプにもそのシェイプを設定します。\n" +
-                "元のシェイプは退避名で残ります"), editExisting);
+            editExisting = EditorGUILayout.ToggleLeft(new GUIContent(T("既存シェイプを編集する"),
+                T("選んだシェイプと同じ名前で出力し、元にするシェイプにもそのシェイプを設定します。\n") +
+                T("元のシェイプは退避名で残ります")), editExisting);
 
             if (editExisting)
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.PrefixLabel("編集するシェイプ");
-                    var label = new GUIContent(string.IsNullOrWhiteSpace(draft.outputName) ? "(シェイプを選択)" : Key(draft));
+                    EditorGUILayout.PrefixLabel(T("編集するシェイプ"));
+                    var label = new GUIContent(string.IsNullOrWhiteSpace(draft.outputName) ? T("(シェイプを選択)") : Key(draft));
                     var rect = GUILayoutUtility.GetRect(label, EditorStyles.popup);
                     if (GUI.Button(rect, label, EditorStyles.popup))
                         new ShapeNameDropdown(EditableShapes(), n =>
@@ -1818,15 +1826,15 @@ namespace AzipaWorks.BlendshapeEditor
                             Undo.RecordObject(this, Title);
                             SelectExisting(n);
                             OnPickerChange();
-                        }, "シェイプキーがありません").Show(rect);
+                        }, T("シェイプキーがありません")).Show(rect);
                 }
 
                 using (new EditorGUI.DisabledScope(true))
-                    EditorGUILayout.TextField("出力シェイプ名", draft.outputName);
+                    EditorGUILayout.TextField(T("出力シェイプ名"), draft.outputName);
             }
             else
             {
-                draft.outputName = EditorGUILayout.TextField("出力シェイプ名", draft.outputName);
+                draft.outputName = EditorGUILayout.TextField(T("出力シェイプ名"), draft.outputName);
             }
             var existing = ShapeBakeCore.OutputNames(Key(draft), draft.split)
                 .Where(n => n.Length > 0 && baseMesh.GetBlendShapeIndex(n) >= 0).ToList();
@@ -1834,38 +1842,38 @@ namespace AzipaWorks.BlendshapeEditor
             {
                 var plan = BackupNamesWithDraft();
                 EditorGUILayout.HelpBox(
-                    $"既存の「{string.Join("」「", existing)}」と同じ名前・同じ位置に新しいシェイプを入れます。\n" +
-                    $"元のシェイプは「{string.Join("」「", existing.Select(n => plan.TryGetValue(n, out var b) ? b : n + Suffix))}」" +
-                    $"として「{ShapeBakeCore.NormalizeHeader(Recipe != null ? Recipe.backupHeader : null)}」の下に残します。",
+                    T("既存の「{0}」と同じ名前・同じ位置に新しいシェイプを入れます。\n", string.Join("」「", existing)) +
+                    T("元のシェイプは「{0}」", string.Join("」「", existing.Select(n => plan.TryGetValue(n, out var b) ? b : n + Suffix))) +
+                    T("として「{0}」の下に残します。", ShapeBakeCore.NormalizeHeader(Recipe != null ? Recipe.backupHeader : null)),
                     MessageType.Info);
             }
 
             var conflict = DraftConflict();
             if (conflict != null) EditorGUILayout.HelpBox(conflict, MessageType.Error);
             else if (SavedWithSameName != null)
-                EditorGUILayout.HelpBox($"作成済みの「{Key(draft)}」を上書きします。", MessageType.None);
+                EditorGUILayout.HelpBox(T("作成済みの「{0}」を上書きします。", Key(draft)), MessageType.None);
 
-            Header("元にするシェイプ（新シェイプ 100 のときの値）");
+            Header(T("元にするシェイプ（新シェイプ 100 のときの値）"));
             nonZeroOnly = EditorGUILayout.ToggleLeft(
-                new GUIContent($"{targetRenderer.name} で 0 以外の値が入っているシェイプだけから選ぶ",
-                    "シェイプ選択リストを、今のメッシュ上で値が設定されているものに絞り込みます"), nonZeroOnly);
+                new GUIContent(T("{0} で 0 以外の値が入っているシェイプだけから選ぶ", targetRenderer.name),
+                    T("シェイプ選択リストを、今のメッシュ上で値が設定されているものに絞り込みます")), nonZeroOnly);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                overLimit = EditorGUILayout.ToggleLeft(new GUIContent("限界突破",
-                    "値を ±100 を超えて設定できるようにします。100 を超えた分は同じ方向に直線的に伸びます"), overLimit,
+                overLimit = EditorGUILayout.ToggleLeft(new GUIContent(T("限界突破"),
+                    T("値を ±100 を超えて設定できるようにします。100 を超えた分は同じ方向に直線的に伸びます")), overLimit,
                     GUILayout.Width(80));
                 using (new EditorGUI.DisabledScope(!overLimit))
                 {
                     EditorGUIUtility.labelWidth = 40;
-                    overLimitMax = Mathf.Clamp(EditorGUILayout.IntField(new GUIContent("上限 ±", "100〜1000"),
+                    overLimitMax = Mathf.Clamp(EditorGUILayout.IntField(new GUIContent(T("上限 ±"), "100〜1000"),
                         overLimitMax, GUILayout.Width(100)), 100, 1000);
                     EditorGUIUtility.labelWidth = 130;
                 }
             }
 
             if (overLimit)
-                EditorGUILayout.HelpBox("±100 を超える値は形が破綻しやすいので、プレビューで確認しながら調整してください。", MessageType.None);
+                EditorGUILayout.HelpBox(T("±100 を超える値は形が破綻しやすいので、プレビューで確認しながら調整してください。"), MessageType.None);
 
             int remove = -1;
             for (int i = 0; i < draft.sources.Count; i++)
@@ -1876,7 +1884,7 @@ namespace AzipaWorks.BlendshapeEditor
                     bool missing = !string.IsNullOrEmpty(s.shapeName) && baseMesh.GetBlendShapeIndex(s.shapeName) < 0;
                     var c = GUI.color;
                     if (missing) GUI.color = new Color(1f, 0.6f, 0.6f);
-                    ShapePicker(s.shapeName, "(シェイプを選択)", n =>
+                    ShapePicker(s.shapeName, T("(シェイプを選択)"), n =>
                     {
                         Undo.RecordObject(this, Title);
                         s.shapeName = n;
@@ -1890,10 +1898,10 @@ namespace AzipaWorks.BlendshapeEditor
                     s.value = EditorGUILayout.Slider(s.value, -range, range);
 
                     float cur = missing || string.IsNullOrEmpty(s.shapeName) ? 0f : CurrentWeight(s.shapeName);
-                    GUILayout.Label(new GUIContent($"現在 {cur:0.#}", $"{targetRenderer.name} 上の現在の値"),
+                    GUILayout.Label(new GUIContent(T("現在 {0:0.#}", cur), T("{0} 上の現在の値", targetRenderer.name)),
                         EditorStyles.miniLabel, GUILayout.Width(52));
                     using (new EditorGUI.DisabledScope(Mathf.Approximately(cur, 0f)))
-                        if (GUILayout.Button(new GUIContent("打消", "値を −現在値 にして、新シェイプ 100 でこのシェイプを 0 と同じ状態にする"),
+                        if (GUILayout.Button(new GUIContent(T("打消"), T("値を −現在値 にして、新シェイプ 100 でこのシェイプを 0 と同じ状態にする")),
                                 EditorStyles.miniButton, GUILayout.Width(36)))
                             s.value = -cur;
                     if (GUILayout.Button("×", GUILayout.Width(22))) remove = i;
@@ -1906,7 +1914,7 @@ namespace AzipaWorks.BlendshapeEditor
                 GUI.changed = true;
             }
 
-            ShapePicker(null, "＋ シェイプを追加", n =>
+            ShapePicker(null, T("＋ シェイプを追加"), n =>
             {
                 Undo.RecordObject(this, Title);
                 // 「0 以外の値が入っているシェイプだけから選ぶ」で選んだときは、今の値を打ち消す値で始める
@@ -1915,15 +1923,15 @@ namespace AzipaWorks.BlendshapeEditor
                 OnPickerChange();
             }, EditorStyles.miniButton);
 
-            Header("左右分割");
-            draft.split = (SideSplit)EditorGUILayout.Popup("分割", (int)draft.split,
-                new[] { "しない", "左側のみ", "右側のみ" });
+            Header(T("左右分割"));
+            draft.split = (SideSplit)EditorGUILayout.Popup(T("分割"), (int)draft.split,
+                new[] { T("しない"), T("左側のみ"), T("右側のみ") });
             if (draft.split != SideSplit.None)
             {
-                draft.splitBlendWidth = EditorGUILayout.FloatField(new GUIContent("境目のぼかし幅 (m)",
-                    "アバター中心（X=0）を境に、この幅でなめらかに左右を分けます"), Mathf.Max(0f, draft.splitBlendWidth));
+                draft.splitBlendWidth = EditorGUILayout.FloatField(new GUIContent(T("境目のぼかし幅 (m)"),
+                    T("アバター中心（X=0）を境に、この幅でなめらかに左右を分けます")), Mathf.Max(0f, draft.splitBlendWidth));
                 draft.splitBlendWidth = Mathf.Max(0f, draft.splitBlendWidth);
-                EditorGUILayout.HelpBox("左右はキャラクター本人から見た向きです（アバターが +Z を向いている前提）。", MessageType.None);
+                EditorGUILayout.HelpBox(T("左右はキャラクター本人から見た向きです（アバターが +Z を向いている前提）。"), MessageType.None);
             }
 
             DrawInsertPosition();
@@ -1948,7 +1956,7 @@ namespace AzipaWorks.BlendshapeEditor
 
                 EditorGUI.BeginChangeCheck();
                 previewEnabled = GUI.Toggle(toggleRect, previewEnabled,
-                    new GUIContent(previewEnabled ? "表示 ON" : "表示 OFF", "シーンへのプレビュー表示を切り替えます"),
+                    new GUIContent(previewEnabled ? T("表示 ON") : T("表示 OFF"), T("シーンへのプレビュー表示を切り替えます")),
                     "Button");
                 if (EditorGUI.EndChangeCheck()) _dirty = true;
 
@@ -1959,7 +1967,7 @@ namespace AzipaWorks.BlendshapeEditor
                 using (new EditorGUI.DisabledScope(!ShapeBakeCore.IsValid(draft, baseMesh)))
                 {
                     EditorGUI.BeginChangeCheck();
-                    previewValue = EditorGUILayout.Slider("新シェイプの値", previewValue, 0f, 100f);
+                    previewValue = EditorGUILayout.Slider(T("新シェイプの値"), previewValue, 0f, 100f);
                     if (EditorGUI.EndChangeCheck()) _weightOnly = true;
                 }
             }
@@ -1970,7 +1978,7 @@ namespace AzipaWorks.BlendshapeEditor
             EditorGUILayout.Space(10);
             bool update = SavedWithSameName != null;
             using (new EditorGUI.DisabledScope(!ShapeBakeCore.IsValid(draft, baseMesh) || DraftConflict() != null))
-                if (GUILayout.Button(update ? $"「{Key(draft)}」を更新" : "作成", GUILayout.Height(32)))
+                if (GUILayout.Button(update ? T("「{0}」を更新", Key(draft)) : T("作成"), GUILayout.Height(32)))
                 {
                     // 作成・更新が終わったら作成タブを空に戻す（プレビューも止まる）
                     if (Commit(ShapesWithDraft(), Suffix, DraftOrder()))
@@ -1983,8 +1991,8 @@ namespace AzipaWorks.BlendshapeEditor
 
             EditorGUILayout.HelpBox(
                 Recipe != null
-                    ? $"「{Path.GetFileName(AssetDatabase.GetAssetPath(AssignedMesh))}」に保存します。作成済みのシェイプは「管理」タブの「作成シェイプ一覧」で確認できます。"
-                    : "初回は保存先を選びます。シェイプを追加した顔のデータを新しいファイル（.asset）として保存し、対象メッシュに適用します。元の FBX は変更しません。",
+                    ? T("「{0}」に保存します。作成済みのシェイプは「管理」タブの「作成シェイプ一覧」で確認できます。", Path.GetFileName(AssetDatabase.GetAssetPath(AssignedMesh)))
+                    : T("初回は保存先を選びます。シェイプを追加した顔のデータを新しいファイル（.asset）として保存し、対象メッシュに適用します。元の FBX は変更しません。"),
                 MessageType.None);
         }
 
@@ -1994,10 +2002,10 @@ namespace AzipaWorks.BlendshapeEditor
         private bool DrawNoRecipe()
         {
             if (Recipe != null && Recipe.shapes.Count > 0) return false;
-            EditorGUILayout.HelpBox("まだ作成したシェイプはありません。「作成」タブで作成してください。", MessageType.Info);
+            EditorGUILayout.HelpBox(T("まだ作成したシェイプはありません。「作成」タブで作成してください。"), MessageType.Info);
             if (AssignedMesh == baseMesh)
                 EditorGUILayout.HelpBox(
-                    "以前保存したファイル（.asset）がある場合は、対象メッシュのレンダラーにそのファイルを割り当てると読み込めます。",
+                    T("以前保存したファイル（.asset）がある場合は、対象メッシュのレンダラーにそのファイルを割り当てると読み込めます。"),
                     MessageType.None);
             return true;
         }
@@ -2006,17 +2014,17 @@ namespace AzipaWorks.BlendshapeEditor
 
         private void DrawShapesTab()
         {
-            TabIntro("作成したシェイプの一覧です。行をクリックすると詳細を表示します。");
+            TabIntro(T("作成したシェイプの一覧です。行をクリックすると詳細を表示します。"));
             if (DrawNoRecipe()) return;
             var recipe = Recipe;
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                GUILayout.Label($"{recipe.shapes.Count} 個", EditorStyles.miniLabel);
+                GUILayout.Label(T("{0} 個", recipe.shapes.Count), EditorStyles.miniLabel);
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("すべて展開", EditorStyles.miniButtonLeft, GUILayout.Width(70)))
+                if (GUILayout.Button(T("すべて展開"), EditorStyles.miniButtonLeft, GUILayout.Width(70)))
                     foreach (var d in recipe.shapes) _expandedShapes.Add(Key(d));
-                if (GUILayout.Button("すべてたたむ", EditorStyles.miniButtonRight, GUILayout.Width(70)))
+                if (GUILayout.Button(T("すべてたたむ"), EditorStyles.miniButtonRight, GUILayout.Width(70)))
                     _expandedShapes.Clear();
             }
 
@@ -2056,13 +2064,13 @@ namespace AzipaWorks.BlendshapeEditor
                         EditorGUI.DrawRect(clickRect, new Color(1f, 1f, 1f, 0.05f));
                     EditorGUIUtility.AddCursorRect(clickRect, MouseCursor.Link);
                     GUI.Label(nameRect, new GUIContent(string.Join(" / ", outputs),
-                        expanded ? "クリックで詳細を閉じる" : "クリックで詳細を表示"), ShapeNameStyle);
+                        expanded ? T("クリックで詳細を閉じる") : T("クリックで詳細を表示")), ShapeNameStyle);
                     bool toggle = Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
                                   clickRect.Contains(Event.current.mousePosition);
                     if (toggle) Event.current.Use();
 
                     if (missing.Count > 0)
-                        GUI.Label(warnRect, new GUIContent("⚠", "元にするシェイプが見つからないものがあります。詳細を確認してください"),
+                        GUI.Label(warnRect, new GUIContent("⚠", T("元にするシェイプが見つからないものがあります。詳細を確認してください")),
                             WarnStyle);
 
                     // 置き換え / 新規 のバッジ
@@ -2072,12 +2080,12 @@ namespace AzipaWorks.BlendshapeEditor
                         Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0,
                         isSeparator ? new Color(0.45f, 0.45f, 0.45f)
                         : isReplace ? new Color(0.85f, 0.45f, 0.1f) : new Color(0.25f, 0.5f, 0.8f), 0, 8f);
-                    GUI.Label(badgeRect, new GUIContent(isSeparator ? "UI用シェイプ" : isReplace ? "既存シェイプの上書き" : "新規",
-                        isSeparator ? "顔を変形しない、一覧を見やすくするための空のシェイプです"
-                        : isReplace ? "既存のシェイプを置き換えています" : "新しい名前で追加しています"), BadgeStyle);
+                    GUI.Label(badgeRect, new GUIContent(isSeparator ? T("UI用シェイプ") : isReplace ? T("既存シェイプの上書き") : T("新規"),
+                        isSeparator ? T("顔を変形しない、一覧を見やすくするための空のシェイプです")
+                        : isReplace ? T("既存のシェイプを置き換えています") : T("新しい名前で追加しています")), BadgeStyle);
 
-                    if (GUI.Button(editRect, "編集", EditorStyles.miniButtonLeft)) toEdit = d;
-                    if (GUI.Button(deleteRect, "削除", EditorStyles.miniButtonRight)) toDelete = d;
+                    if (GUI.Button(editRect, T("編集"), EditorStyles.miniButtonLeft)) toEdit = d;
+                    if (GUI.Button(deleteRect, T("削除"), EditorStyles.miniButtonRight)) toDelete = d;
 
                     if (toggle)
                     {
@@ -2094,27 +2102,27 @@ namespace AzipaWorks.BlendshapeEditor
                     {
                         if (d.kind == ShapeKind.Separator)
                         {
-                            EditorGUILayout.LabelField("顔を変形しない UI 用のシェイプです。", EditorStyles.miniLabel);
+                            EditorGUILayout.LabelField(T("顔を変形しない UI 用のシェイプです。"), EditorStyles.miniLabel);
                             continue;
                         }
 
-                        EditorGUILayout.LabelField("元にするシェイプ", EditorStyles.miniBoldLabel);
+                        EditorGUILayout.LabelField(T("元にするシェイプ"), EditorStyles.miniBoldLabel);
                         foreach (var src in d.sources)
-                            EditorGUILayout.LabelField($"・{src.shapeName}　{src.value:0.#}", EditorStyles.miniLabel);
+                            EditorGUILayout.LabelField(T("・{0}　{1:0.#}", src.shapeName, src.value), EditorStyles.miniLabel);
 
                         if (replaced.Count > 0)
                             EditorGUILayout.LabelField(
-                                $"元のシェイプは {string.Join("、", replaced.Select(n => plan[n]))} に退避しています",
+                                T("元のシェイプは {0} に退避しています", string.Join("、", replaced.Select(n => plan[n]))),
                                 EditorStyles.miniLabel);
-                        if (d.split == SideSplit.LeftOnly) EditorGUILayout.LabelField("左側のみ", EditorStyles.miniLabel);
-                        if (d.split == SideSplit.RightOnly) EditorGUILayout.LabelField("右側のみ", EditorStyles.miniLabel);
+                        if (d.split == SideSplit.LeftOnly) EditorGUILayout.LabelField(T("左側のみ"), EditorStyles.miniLabel);
+                        if (d.split == SideSplit.RightOnly) EditorGUILayout.LabelField(T("右側のみ"), EditorStyles.miniLabel);
 
                         if (missing.Count > 0)
                             EditorGUILayout.HelpBox(
-                                $"アバターの顔のデータに見つからないシェイプがあります: {string.Join("、", missing)}\n" +
+                                T("アバターの顔のデータに見つからないシェイプがあります: {0}\n", string.Join("、", missing)) +
                                 (ShapeBakeCore.IsValid(d, baseMesh)
-                                    ? "見つからないシェイプは無視して作成されます。"
-                                    : "このシェイプは作成されません（設定は残っています）。「編集」で元にするシェイプを選び直してください。"),
+                                    ? T("見つからないシェイプは無視して作成されます。")
+                                    : T("このシェイプは作成されません（設定は残っています）。「編集」で元にするシェイプを選び直してください。")),
                                 MessageType.Warning);
                     }
                 }
@@ -2216,7 +2224,7 @@ namespace AzipaWorks.BlendshapeEditor
         /// <summary>並びを変更する前に呼ぶ（Unity の Undo に記録する）</summary>
         private void BeginOrderEdit(string label)
         {
-            Undo.RecordObject(this, $"{Title} (並び順: {label})");
+            Undo.RecordObject(this, T("{0} (並び順: {1})", Title, label));
         }
 
         private void EndOrderEdit()
@@ -2265,11 +2273,11 @@ namespace AzipaWorks.BlendshapeEditor
             if (idx.Count == 0) return;
             if (delta < 0)
             {
-                if (idx[0] > 0) MoveSelectionTo(idx[0] - 1, "上へ");
+                if (idx[0] > 0) MoveSelectionTo(idx[0] - 1, T("上へ"));
             }
             else if (idx[idx.Count - 1] < orderDraft.Count - 1)
             {
-                MoveSelectionTo(idx[idx.Count - 1] + 2, "下へ");
+                MoveSelectionTo(idx[idx.Count - 1] + 2, T("下へ"));
             }
         }
 
@@ -2314,7 +2322,7 @@ namespace AzipaWorks.BlendshapeEditor
 
         private void DrawOrderTab()
         {
-            TabIntro("シェイプキーの並び順を変更します。ドラッグ＆ドロップかボタンで並べ替えて、「並び順を保存」で反映します。");
+            TabIntro(T("シェイプキーの並び順を変更します。ドラッグ＆ドロップかボタンで並べ替えて、「並び順を保存」で反映します。"));
             EnsureOrderDraft();
             var recipe = Recipe;
             var created = new HashSet<string>(recipe != null ? ShapeBakeCore.OutputNamesOf(recipe.shapes, baseMesh) : new List<string>());
@@ -2330,29 +2338,29 @@ namespace AzipaWorks.BlendshapeEditor
             UpdateDiff(before);
 
             EditorGUILayout.HelpBox(
-                "Avatar Descriptor の瞬き・視線はシェイプを番号で参照しているため、並び替えると参照がずれます。" +
-                "保存時に編集中のアバターは自動で付け直します。同じファイルを使う他のアバターは「アバター管理」で付け直してください。",
+                T("Avatar Descriptor の瞬き・視線はシェイプを番号で参照しているため、並び替えると参照がずれます。") +
+                T("保存時に編集中のアバターは自動で付け直します。同じファイルを使う他のアバターは「アバター管理」で付け直してください。"),
                 MessageType.Warning);
 
             // ---- ツールバー 1: 元に戻す / やり直す・比較
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(orderEditSerial <= _orderBaseSerial))
-                    if (GUILayout.Button(new GUIContent("↶ 元に戻す", "直前の並べ替えを取り消します（Ctrl+Z）"),
+                    if (GUILayout.Button(new GUIContent(T("↶ 元に戻す"), T("直前の並べ替えを取り消します（Ctrl+Z）")),
                             EditorStyles.miniButtonLeft, GUILayout.Width(80)))
                         Undo.PerformUndo();
                 using (new EditorGUI.DisabledScope(orderEditSerial >= _orderMaxSerial))
-                    if (GUILayout.Button(new GUIContent("やり直す ↷", "取り消した並べ替えをやり直します（Ctrl+Y）"),
+                    if (GUILayout.Button(new GUIContent(T("やり直す ↷"), T("取り消した並べ替えをやり直します（Ctrl+Y）")),
                             EditorStyles.miniButtonRight, GUILayout.Width(80)))
                         Undo.PerformRedo();
 
                 GUILayout.FlexibleSpace();
                 orderCompare = GUILayout.Toggle(orderCompare,
-                    new GUIContent("変更前と比較", "保存済みの並び（左）と編集中の並び（右）を並べて表示します"),
+                    new GUIContent(T("変更前と比較"), T("保存済みの並び（左）と編集中の並び（右）を並べて表示します")),
                     EditorStyles.miniButton, GUILayout.Width(100));
                 using (new EditorGUI.DisabledScope(!orderCompare))
                     orderChangedOnly = GUILayout.Toggle(orderChangedOnly && orderCompare,
-                        new GUIContent($"移動したものだけ（{_moved.Count}）", "並べ替えで動かしたシェイプだけを表示します"),
+                        new GUIContent(T("移動したものだけ（{0}）", _moved.Count), T("並べ替えで動かしたシェイプだけを表示します")),
                         EditorStyles.miniButton, GUILayout.Width(130));
             }
 
@@ -2360,17 +2368,17 @@ namespace AzipaWorks.BlendshapeEditor
             using (new EditorGUILayout.HorizontalScope())
             {
                 _orderSearch = EditorGUILayout.TextField(_orderSearch, EditorStyles.toolbarSearchField);
-                GUILayout.Label($"選択 {_orderSel.Count} / 全 {orderDraft.Count}", EditorStyles.miniLabel, GUILayout.Width(110));
+                GUILayout.Label(T("選択 {0} / 全 {1}", _orderSel.Count, orderDraft.Count), EditorStyles.miniLabel, GUILayout.Width(110));
             }
 
             using (new EditorGUILayout.HorizontalScope())
             using (new EditorGUI.DisabledScope(_orderSel.Count == 0))
             {
-                if (GUILayout.Button("先頭へ", EditorStyles.miniButtonLeft)) MoveSelectionTo(0, "先頭へ");
-                if (GUILayout.Button("上へ", EditorStyles.miniButtonMid)) MoveSelectionBy(-1);
-                if (GUILayout.Button("下へ", EditorStyles.miniButtonMid)) MoveSelectionBy(1);
-                if (GUILayout.Button("末尾へ", EditorStyles.miniButtonRight)) MoveSelectionTo(orderDraft.Count, "末尾へ");
-                if (GUILayout.Button("選択を外す", EditorStyles.miniButton, GUILayout.Width(70))) _orderSel.Clear();
+                if (GUILayout.Button(T("先頭へ"), EditorStyles.miniButtonLeft)) MoveSelectionTo(0, T("先頭へ"));
+                if (GUILayout.Button(T("上へ"), EditorStyles.miniButtonMid)) MoveSelectionBy(-1);
+                if (GUILayout.Button(T("下へ"), EditorStyles.miniButtonMid)) MoveSelectionBy(1);
+                if (GUILayout.Button(T("末尾へ"), EditorStyles.miniButtonRight)) MoveSelectionTo(orderDraft.Count, T("末尾へ"));
+                if (GUILayout.Button(T("選択を外す"), EditorStyles.miniButton, GUILayout.Width(70))) _orderSel.Clear();
             }
 
             // ---- 一覧
@@ -2388,8 +2396,8 @@ namespace AzipaWorks.BlendshapeEditor
             {
                 var titles = GUILayoutUtility.GetRect(0, 18, GUILayout.ExpandWidth(true));
                 float half = (titles.width - 16) / 2f;
-                GUI.Label(new Rect(titles.x, titles.y, half, 18), "変更前（保存済み）", PaneTitleStyle);
-                GUI.Label(new Rect(titles.x + half + 4, titles.y, half, 18), "変更後（編集中）", PaneTitleStyle);
+                GUI.Label(new Rect(titles.x, titles.y, half, 18), T("変更前（保存済み）"), PaneTitleStyle);
+                GUI.Label(new Rect(titles.x + half + 4, titles.y, half, 18), T("変更後（編集中）"), PaneTitleStyle);
             }
 
             var outer = GUILayoutUtility.GetRect(0, viewHeight, GUILayout.ExpandWidth(true));
@@ -2405,11 +2413,11 @@ namespace AzipaWorks.BlendshapeEditor
             float rightX = orderCompare ? paneWidth + 4 : 0;
 
             string Tag(string name) =>
-                backups.Contains(name) ? "退避"
-                : separators.Contains(name) ? "UI用"
-                : name == header && !created.Contains(name) ? "退避の見出し"
-                : replaced.Contains(name) ? "上書き"
-                : created.Contains(name) ? "作成" : "";
+                backups.Contains(name) ? T("退避")
+                : separators.Contains(name) ? T("UI用")
+                : name == header && !created.Contains(name) ? T("退避の見出し")
+                : replaced.Contains(name) ? T("上書き")
+                : created.Contains(name) ? T("作成") : "";
 
             void DrawRow(Rect r, string name, int index, bool isRight)
             {
@@ -2436,7 +2444,7 @@ namespace AzipaWorks.BlendshapeEditor
                 else tag = Tag(name);
                 if (tag.Length > 0)
                     GUI.Label(new Rect(r.xMax - tagWidth - 2, r.y, tagWidth, r.height),
-                        new GUIContent(tag, moved ? "並べ替えで移動したシェイプです" : tag == "退避" ? "退避したシェイプは、退避用の見出しの下にまとめて置かれます" : ""),
+                        new GUIContent(tag, moved ? T("並べ替えで移動したシェイプです") : tag == T("退避") ? T("退避したシェイプは、退避用の見出しの下にまとめて置かれます") : ""),
                         OrderTagStyle);
 
                 // クリックで選択（Ctrl で追加、Shift で範囲）。左右どちらをクリックしても同じシェイプが選ばれる
@@ -2497,7 +2505,7 @@ namespace AzipaWorks.BlendshapeEditor
                 }
                 else if (e.type == EventType.MouseUp)
                 {
-                    if (_orderDropIndex >= 0) MoveSelectionTo(_orderDropIndex, "ドラッグで移動");
+                    if (_orderDropIndex >= 0) MoveSelectionTo(_orderDropIndex, T("ドラッグで移動"));
                     _orderDragging = false;
                     _orderDropIndex = -1;
                     e.Use();
@@ -2510,36 +2518,36 @@ namespace AzipaWorks.BlendshapeEditor
 
             GUI.EndScrollView();
             if (filtering)
-                EditorGUILayout.LabelField("検索・絞り込み中はドラッグできません。ボタンで移動してください。", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(T("検索・絞り込み中はドラッグできません。ボタンで移動してください。"), EditorStyles.miniLabel);
             else if (orderCompare)
-                EditorGUILayout.LabelField("左が保存済み、右が編集中の並びです。動かしたシェイプは色付きで、右に移動量（↑↓）、左に移動先の番号を表示します。",
+                EditorGUILayout.LabelField(T("左が保存済み、右が編集中の並びです。動かしたシェイプは色付きで、右に移動量（↑↓）、左に移動先の番号を表示します。"),
                     EditorStyles.wordWrappedMiniLabel);
 
             // ---- 保存
             if (changed)
-                EditorGUILayout.HelpBox($"未保存の変更があります（移動したシェイプ {_moved.Count} 個）。", MessageType.Info);
+                EditorGUILayout.HelpBox(T("未保存の変更があります（移動したシェイプ {0} 個）。", _moved.Count), MessageType.Info);
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button(new GUIContent("元の並びに戻す", "ツールの既定の並び（元の顔のデータの順・作成したシェイプ・退避用の見出し）に戻します"),
+                if (GUILayout.Button(new GUIContent(T("元の並びに戻す"), T("ツールの既定の並び（元の顔のデータの順・作成したシェイプ・退避用の見出し）に戻します")),
                         GUILayout.Height(26)))
                 {
                     var newNames = recipe != null ? ShapeBakeCore.OutputNamesOf(recipe.shapes, baseMesh) : new List<string>();
-                    SetOrderDraft(ShapeBakeCore.PlanOrder(baseMesh, newNames, plan, header, null), "元の並びに戻す");
+                    SetOrderDraft(ShapeBakeCore.PlanOrder(baseMesh, newNames, plan, header, null), T("元の並びに戻す"));
                 }
 
                 using (new EditorGUI.DisabledScope(!changed))
                 {
-                    if (GUILayout.Button("変更を取り消す", GUILayout.Height(26), GUILayout.Width(110)))
-                        SetOrderDraft(before.ToList(), "変更を取り消す");
+                    if (GUILayout.Button(T("変更を取り消す"), GUILayout.Height(26), GUILayout.Width(110)))
+                        SetOrderDraft(before.ToList(), T("変更を取り消す"));
 
-                    if (GUILayout.Button("並び順を保存", GUILayout.Height(26), GUILayout.Width(110)))
+                    if (GUILayout.Button(T("並び順を保存"), GUILayout.Height(26), GUILayout.Width(110)))
                     {
                         if (EditorUtility.DisplayDialog(Title,
-                                "シェイプキーの並び順を保存します。\n\n" +
-                                "Avatar Descriptor の瞬き・視線はシェイプを番号で参照しているため、並び替えると参照がずれます。\n" +
-                                "・編集中のアバター：自動で付け直します\n" +
-                                "・同じファイルを使う他のアバター：「管理 › アバター管理」で付け直してください\n\n保存しますか？",
-                                "保存する", "キャンセル"))
+                                T("シェイプキーの並び順を保存します。\n\n") +
+                                T("Avatar Descriptor の瞬き・視線はシェイプを番号で参照しているため、並び替えると参照がずれます。\n") +
+                                T("・編集中のアバター：自動で付け直します\n") +
+                                T("・同じファイルを使う他のアバター：「管理 › アバター管理」で付け直してください\n\n保存しますか？"),
+                                T("保存する"), T("キャンセル")))
                         {
                             var order = orderDraft.ToList();
                             if (Commit(SavedShapes.Select(x => x.Clone()).ToList(), Suffix, order))
@@ -2559,7 +2567,7 @@ namespace AzipaWorks.BlendshapeEditor
 
         private void DrawAvatarsTab()
         {
-            TabIntro("シーンのアバターに、作ったシェイプを反映したり、作る前の状態に戻したりします。");
+            TabIntro(T("シーンのアバターに、作ったシェイプを反映したり、作る前の状態に戻したりします。"));
             if (DrawNoRecipe()) return;
             DrawDuplicatesSection();
         }
@@ -2568,60 +2576,60 @@ namespace AzipaWorks.BlendshapeEditor
 
         private void DrawSettingsTab()
         {
-            TabIntro("顔のデータの情報と、ふだんは変更しない設定です。");
+            TabIntro(T("顔のデータの情報と、ふだんは変更しない設定です。"));
             var recipe = Recipe;
 
-            Header("顔のデータ");
+            Header(T("顔のデータ"));
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.ObjectField(new GUIContent("シェイプを作る前",
-                        "シェイプは毎回このデータ（FBX など）から作り直します。このデータ自体は変更しません"),
+                EditorGUILayout.ObjectField(new GUIContent(T("シェイプを作る前"),
+                        T("シェイプは毎回このデータ（FBX など）から作り直します。このデータ自体は変更しません")),
                     baseMesh, typeof(Mesh), false);
-                EditorGUILayout.ObjectField(new GUIContent("保存したファイル", "作ったシェイプを追加した顔のデータです"),
+                EditorGUILayout.ObjectField(new GUIContent(T("保存したファイル"), T("作ったシェイプを追加した顔のデータです")),
                     recipe != null ? AssignedMesh : null, typeof(Mesh), false);
             }
 
-            Header("アバターを更新したとき");
+            Header(T("アバターを更新したとき"));
             EditorGUILayout.LabelField(
-                "アバターを新しいバージョンに更新したときや、顔のシェイプキーを修正したときに押してください。" +
-                "作ったシェイプの設定はそのままで、最新の顔のデータに合わせて作り直します。",
+                T("アバターを新しいバージョンに更新したときや、顔のシェイプキーを修正したときに押してください。") +
+                T("作ったシェイプの設定はそのままで、最新の顔のデータに合わせて作り直します。"),
                 EditorStyles.wordWrappedMiniLabel);
             using (new EditorGUI.DisabledScope(recipe == null))
-                if (GUILayout.Button(new GUIContent("最新のアバターに合わせて作り直す",
-                        "作ったシェイプは作成した時点の顔のデータを使っているため、アバターを更新しても自動では反映されません")))
+                if (GUILayout.Button(new GUIContent(T("最新のアバターに合わせて作り直す"),
+                        T("作ったシェイプは作成した時点の顔のデータを使っているため、アバターを更新しても自動では反映されません"))))
                 {
                     Commit(SavedShapes.Select(s => s.Clone()).ToList(), Suffix);
                     GUIUtility.ExitGUI();
                 }
 
-            Header("このアバター用に作ったファイル");
+            Header(T("このアバター用に作ったファイル"));
             var saved = SavedFilesForThisFace();
             if (saved.Count == 0)
             {
-                EditorGUILayout.LabelField("まだありません。", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(T("まだありません。"), EditorStyles.miniLabel);
             }
             else
             {
-                EditorGUILayout.LabelField("不要になったファイルは削除できます。使用中のファイルは削除できません。",
+                EditorGUILayout.LabelField(T("不要になったファイルは削除できます。使用中のファイルは削除できません。"),
                     EditorStyles.wordWrappedMiniLabel);
                 foreach (var (mesh, r) in saved) DrawSavedFileRow(mesh, r, false);
             }
 
-            Header("退避用の見出し");
+            Header(T("退避用の見出し"));
             EditorGUILayout.LabelField(
-                "既存のシェイプを上書きしたとき、退避した元のシェイプはこの見出しの下にまとめて置きます。" +
-                "既存の見出し（例: ---- VRCHAT ----）と同じ名前にすると、その下に置きます。",
+                T("既存のシェイプを上書きしたとき、退避した元のシェイプはこの見出しの下にまとめて置きます。") +
+                T("既存の見出し（例: ---- VRCHAT ----）と同じ名前にすると、その下に置きます。"),
                 EditorStyles.wordWrappedMiniLabel);
             if (string.IsNullOrEmpty(headerEdit))
                 headerEdit = recipe != null ? recipe.backupHeader : ShapeRecipe.DefaultBackupHeader;
             using (new EditorGUI.DisabledScope(recipe == null))
             using (new EditorGUILayout.HorizontalScope())
             {
-                headerEdit = EditorGUILayout.TextField("見出しの名前", headerEdit);
+                headerEdit = EditorGUILayout.TextField(T("見出しの名前"), headerEdit);
                 using (new EditorGUI.DisabledScope(recipe == null ||
                                                    ShapeBakeCore.NormalizeHeader(headerEdit) ==
                                                    ShapeBakeCore.NormalizeHeader(recipe.backupHeader)))
-                    if (GUILayout.Button("適用", GUILayout.Width(50)))
+                    if (GUILayout.Button(T("適用"), GUILayout.Width(50)))
                     {
                         Commit(SavedShapes.Select(s => s.Clone()).ToList(), Suffix, null,
                             ShapeBakeCore.NormalizeHeader(headerEdit));
@@ -2629,15 +2637,15 @@ namespace AzipaWorks.BlendshapeEditor
                     }
             }
 
-            Header("退避名の接尾辞");
-            EditorGUILayout.LabelField("既存のシェイプを上書きしたとき、元のシェイプはこの接尾辞を付けた名前で残します。",
+            Header(T("退避名の接尾辞"));
+            EditorGUILayout.LabelField(T("既存のシェイプを上書きしたとき、元のシェイプはこの接尾辞を付けた名前で残します。"),
                 EditorStyles.wordWrappedMiniLabel);
             using (new EditorGUI.DisabledScope(recipe == null))
             using (new EditorGUILayout.HorizontalScope())
             {
-                suffixEdit = EditorGUILayout.TextField("接尾辞", suffixEdit);
+                suffixEdit = EditorGUILayout.TextField(T("接尾辞"), suffixEdit);
                 using (new EditorGUI.DisabledScope(ShapeBakeCore.NormalizeSuffix(suffixEdit) == Suffix))
-                    if (GUILayout.Button("適用", GUILayout.Width(50)))
+                    if (GUILayout.Button(T("適用"), GUILayout.Width(50)))
                     {
                         Commit(SavedShapes.Select(s => s.Clone()).ToList(), ShapeBakeCore.NormalizeSuffix(suffixEdit));
                         GUIUtility.ExitGUI();
@@ -2645,15 +2653,15 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             if (recipe == null)
-                EditorGUILayout.HelpBox("シェイプを作成すると変更できるようになります。", MessageType.None);
+                EditorGUILayout.HelpBox(T("シェイプを作成すると変更できるようになります。"), MessageType.None);
         }
 
         private void DeleteShape(ShapeDefinition d)
         {
             if (!EditorUtility.DisplayDialog(Title,
-                    $"「{Key(d)}」を削除しますか？\n既存を置き換えていた場合は元のシェイプに戻ります。\n" +
-                    "この操作は Undo で取り消せません（もう一度作成すれば元に戻せます）。",
-                    "削除", "キャンセル"))
+                    T("「{0}」を削除しますか？\n既存を置き換えていた場合は元のシェイプに戻ります。\n", Key(d)) +
+                    T("この操作は Undo で取り消せません（もう一度作成すれば元に戻せます）。"),
+                    T("削除"), T("キャンセル")))
                 return;
 
             var rest = SavedShapes.Where(s => s != d).Select(s => s.Clone()).ToList();
@@ -2673,7 +2681,7 @@ namespace AzipaWorks.BlendshapeEditor
             catch (Exception e)
             {
                 Debug.LogException(e);
-                EditorUtility.DisplayDialog(Title, "保存中にエラーが発生しました。詳細は Console を確認してください。\n\n" + e.Message, "OK");
+                EditorUtility.DisplayDialog(Title, T("保存中にエラーが発生しました。詳細は Console を確認してください。\n\n") + e.Message, "OK");
                 InvalidateRecipe();
                 _dirty = true;
                 return false;
@@ -2687,12 +2695,12 @@ namespace AzipaWorks.BlendshapeEditor
             var assigned = r.sharedMesh;
             var recipe = ShapeRecipe.Find(assigned);
             if (recipe != null && recipe.baseMesh != baseMesh)
-                throw new InvalidOperationException("対象メッシュの状態が変わっています。対象メッシュを指定し直してから、もう一度お試しください。");
+                throw new InvalidOperationException(T("対象メッシュの状態が変わっています。対象メッシュを指定し直してから、もう一度お試しください。"));
 
             var valid = definitions.Where(s => ShapeBakeCore.IsValid(s, baseMesh)).ToList();
             order = order ?? recipe?.order;
             header = ShapeBakeCore.NormalizeHeader(header ?? recipe?.backupHeader);
-            EditorUtility.DisplayProgressBar(Title, "シェイプを作成しています…", 0.3f);
+            EditorUtility.DisplayProgressBar(Title, T("シェイプを作成しています…"), 0.3f);
             ShapeBakeCore.GenerateResult res;
             try
             {
@@ -2727,8 +2735,8 @@ namespace AzipaWorks.BlendshapeEditor
 
                 int others = users.Count(u => u != r && JudgeEyelids(recipe, u, out _) == EyelidState.Shifted);
                 if (shifted && others > 0)
-                    res.warnings.Add($"シェイプの並びが変わったため、同じファイルを使う他のアバター {others} 体の瞬き・視線の設定がずれています。" +
-                                     "「管理 › アバター管理」で付け直してください。");
+                    res.warnings.Add(T("シェイプの並びが変わったため、同じファイルを使う他のアバター {0} 体の瞬き・視線の設定がずれています。", others) +
+                                     T("「管理 › アバター管理」で付け直してください。"));
                 EditorUtility.SetDirty(recipe);
                 AssetDatabase.SaveAssets();
             }
@@ -2736,8 +2744,8 @@ namespace AzipaWorks.BlendshapeEditor
             {
                 if (!AssetDatabase.IsValidFolder(DefaultFolder))
                     AssetDatabase.CreateFolder("Assets", Path.GetFileName(DefaultFolder));
-                var path = EditorUtility.SaveFilePanelInProject("メッシュを保存", baseMesh.name + "_BSE", "asset",
-                    "シェイプを追加したメッシュの保存先", DefaultFolder);
+                var path = EditorUtility.SaveFilePanelInProject(T("メッシュを保存"), baseMesh.name + "_BSE", "asset",
+                    T("シェイプを追加したメッシュの保存先"), DefaultFolder);
                 if (string.IsNullOrEmpty(path))
                 {
                     Object.DestroyImmediate(res.mesh);
@@ -2764,7 +2772,7 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             foreach (var w in res.warnings) Debug.LogWarning($"[{Title}] {w}");
-            Debug.Log($"[{Title}] 保存しました: {AssetDatabase.GetAssetPath(r.sharedMesh)}", r.sharedMesh);
+            Debug.Log(T("[{0}] 保存しました: {1}", Title, AssetDatabase.GetAssetPath(r.sharedMesh)), r.sharedMesh);
             InvalidateRecipe();
             InvalidateDuplicates();
             _synced = false;
@@ -2874,7 +2882,7 @@ namespace AzipaWorks.BlendshapeEditor
                 arr[i] = ni;
                 changed = true;
                 if (ni < 0)
-                    warnings.Add($"Avatar Descriptor の瞬き・視線で使っていた「{oldNames[idx]}」が無くなったため、割り当てを解除しました。");
+                    warnings.Add(T("Avatar Descriptor の瞬き・視線で使っていた「{0}」が無くなったため、割り当てを解除しました。", oldNames[idx]));
             }
 
             if (!changed) return;
@@ -2914,10 +2922,10 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             int choice = EditorUtility.DisplayDialogComplex(Title,
-                "反映前の状態に戻します（反映前の記録が無いアバターは、シェイプを作る前の顔に戻ります）。\n\n" +
-                $"このファイル（{file.name}）は、このアバターを含めて {users.Count} 体のアバターが使っています。\n" +
-                "どの範囲を戻しますか？",
-                "このアバターだけ戻す", "キャンセル", $"全アバター（{users.Count} 体）を戻す");
+                T("反映前の状態に戻します（反映前の記録が無いアバターは、シェイプを作る前の顔に戻ります）。\n\n") +
+                T("このファイル（{0}）は、このアバターを含めて {1} 体のアバターが使っています。\n", file.name, users.Count) +
+                T("どの範囲を戻しますか？"),
+                T("このアバターだけ戻す"), T("キャンセル"), T("全アバター（{0} 体）を戻す", users.Count));
             if (choice == 1) return;
             RevertRenderers(choice == 2 ? users : users.Take(1).ToList());
         }
@@ -2929,7 +2937,7 @@ namespace AzipaWorks.BlendshapeEditor
         private void RevertRenderers(List<SkinnedMeshRenderer> renderers)
         {
             var warnings = new List<string>();
-            Undo.SetCurrentGroupName(Title + " (元に戻す)");
+            Undo.SetCurrentGroupName(Title + T(" (元に戻す)"));
             int group = Undo.GetCurrentGroup();
             int count = 0;
 
@@ -2943,7 +2951,7 @@ namespace AzipaWorks.BlendshapeEditor
                 var point = recipe?.LatestRestorePoint(RendererId(r));
                 if (point != null)
                 {
-                    Undo.RecordObject(recipe, Title + " (反映前に戻す)");
+                    Undo.RecordObject(recipe, Title + T(" (反映前に戻す)"));
                     if (RestoreFromPoint(r, point, recipe, warnings))
                     {
                         EditorUtility.SetDirty(recipe);
@@ -2974,7 +2982,7 @@ namespace AzipaWorks.BlendshapeEditor
                     EditorUtility.SetDirty(recipe);
                 }
 
-                Undo.RecordObject(r, Title + " (元に戻す)");
+                Undo.RecordObject(r, Title + T(" (元に戻す)"));
                 ShapeBakeCore.SwapMeshKeepingWeights(r, face, overrides);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(r);
                 RemapEyelids(r, oldNames, warnings);
@@ -2984,7 +2992,7 @@ namespace AzipaWorks.BlendshapeEditor
             AssetDatabase.SaveAssets();
             Undo.CollapseUndoOperations(group);
             foreach (var w in warnings) Debug.LogWarning($"[{Title}] {w}");
-            if (count > 0) Debug.Log($"[{Title}] {count} 体のアバターを反映前に戻しました。");
+            if (count > 0) Debug.Log(T("[{0}] {1} 体のアバターを反映前に戻しました。", Title, count));
             InvalidateRecipe();
             InvalidateDuplicates();
             _synced = false;
@@ -3028,11 +3036,11 @@ namespace AzipaWorks.BlendshapeEditor
             for (int i = 0; i < baseMesh.blendShapeCount; i++)
             {
                 var n = baseMesh.GetBlendShapeName(i);
-                items.Add((n, created.Contains(n) ? n + "    (作成済み)" : n));
+                items.Add((n, created.Contains(n) ? n + T("    (作成済み)") : n));
             }
 
             foreach (var n in created.Where(n => baseMesh.GetBlendShapeIndex(n) < 0))
-                items.Add((n, n + "    (作成済み)"));
+                items.Add((n, n + T("    (作成済み)")));
             return items;
         }
 
@@ -3074,7 +3082,7 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             new ShapeNameDropdown(items, onSelect,
-                nonZeroOnly ? $"{targetRenderer.name} 上で値が入っているシェイプはありません" : "シェイプキーがありません").Show(rect);
+                nonZeroOnly ? T("{0} 上で値が入っているシェイプはありません", targetRenderer.name) : T("シェイプキーがありません")).Show(rect);
         }
 
         // ------------------------------------------------------------------ preview state
@@ -3299,7 +3307,7 @@ namespace AzipaWorks.BlendshapeEditor
 
         protected override AdvancedDropdownItem BuildRoot()
         {
-            var root = new AdvancedDropdownItem("シェイプキー");
+            var root = new AdvancedDropdownItem(T("シェイプキー"));
             if (_items.Count == 0)
                 root.AddChild(new AdvancedDropdownItem(_emptyMessage) { id = -1, enabled = false });
             for (int i = 0; i < _items.Count; i++) root.AddChild(new AdvancedDropdownItem(_items[i].label) { id = i });

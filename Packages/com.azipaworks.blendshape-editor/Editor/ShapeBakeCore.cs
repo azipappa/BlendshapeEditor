@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using static AzipaWorks.BlendshapeEditor.BseLocalization;
 
 namespace AzipaWorks.BlendshapeEditor
 {
@@ -315,7 +316,7 @@ namespace AzipaWorks.BlendshapeEditor
 
                 foreach (var sh in shapes)
                 {
-                    if (baked.ContainsKey(sh.name)) res.warnings.Add($"シェイプ名「{sh.name}」が重複しています（後のものを使用）");
+                    if (baked.ContainsKey(sh.name)) res.warnings.Add(T("シェイプ名「{0}」が重複しています（後のものを使用）", sh.name));
                     else newNames.Add(sh.name);
                     baked[sh.name] = sh;
                 }
