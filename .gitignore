@@ -1,0 +1,19 @@
+# Ignore everything by default. This repository publishes only
+# the Blendshape Editor VPM package.
+# (Assets/ のアバターデータ、BlendshapeEditor_Release/ のライセンスインストーラー、
+#  Assets/BlendshapeEditorDev/ の書き出しメニューは、ここで除外される)
+/*
+
+# Keep this ignore policy and repository documentation.
+!/.gitignore
+!/CHANGELOG.md
+!/README.md
+!/.github/
+!/.github/workflows/
+!/.github/workflows/release.yml
+
+# Keep only the VPM package.
+!/Packages/
+/Packages/*
+!/Packages/com.azipaworks.blendshape-editor/
+!/Packages/com.azipaworks.blendshape-editor/**

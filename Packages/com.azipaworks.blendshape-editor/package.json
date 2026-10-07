@@ -1,0 +1,15 @@
+{
+  "name": "com.azipaworks.blendshape-editor",
+  "displayName": "Blendshape Editor",
+  "version": "1.0.0",
+  "unity": "2022.3",
+  "description": "Create, merge, and reorder blendshapes for VRChat avatars without modifying the original FBX.",
+  "author": {
+    "name": "Azipa Works",
+    "email": "306074014+azipappa@users.noreply.github.com"
+  },
+  "license": "SEE LICENSE IN BlendShape Editor利用規約（日本語版）ver1.0.0.pdf",
+  "legacyFolders": {
+    "Assets/BlendshapeEditor": "1f3cf449e1581ec4aad9123028ea8ced"
+  }
+}
