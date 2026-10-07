@@ -49,7 +49,6 @@ namespace AzipaWorks.BlendshapeEditor
         [SerializeField] private ManageTab manageTab = ManageTab.Shapes;
         [SerializeField] private bool previewEnabled = true;
         [SerializeField] private float previewValue = 100f;
-        [SerializeField] private int previewSide; // 0=両方, 1=左, 2=右（左右両方を作るときのみ）
         [SerializeField] private bool nonZeroOnly;
         [SerializeField] private bool overLimit;
         [SerializeField] private int overLimitMax = 300;
@@ -1225,10 +1224,10 @@ namespace AzipaWorks.BlendshapeEditor
                 if (frames != null) ShapeBakeCore.Accumulate(frames, s.value, _dv, _dn, _dt);
             }
 
-            // 左右分割: 片側だけ残す（左右両方を作る場合は表示する側を選べる）
+            // 左右分割: 片側だけ残す
             bool? left = null;
-            if (draft.split == SideSplit.LeftOnly || (draft.split == SideSplit.Both && previewSide == 1)) left = true;
-            if (draft.split == SideSplit.RightOnly || (draft.split == SideSplit.Both && previewSide == 2)) left = false;
+            if (draft.split == SideSplit.LeftOnly) left = true;
+            if (draft.split == SideSplit.RightOnly) left = false;
             if (left.HasValue)
             {
                 var mask = Mask();
@@ -1261,11 +1260,7 @@ namespace AzipaWorks.BlendshapeEditor
 
         private float PreviewWeight() => previewValue;
 
-        private string PreviewLabel()
-        {
-            string side = draft.split == SideSplit.Both ? new[] { "", "  左", "  右" }[Mathf.Clamp(previewSide, 0, 2)] : "";
-            return $"{Key(draft)}{side}  値 {previewValue:0}";
-        }
+        private string PreviewLabel() => $"{Key(draft)}  値 {previewValue:0}";
 
         private enum PreviewState
         {
@@ -1924,7 +1919,7 @@ namespace AzipaWorks.BlendshapeEditor
 
             Header("左右分割");
             draft.split = (SideSplit)EditorGUILayout.Popup("分割", (int)draft.split,
-                new[] { "しない", "左側のみ", "右側のみ", "左右両方（_L / _R を作成）" });
+                new[] { "しない", "左側のみ", "右側のみ" });
             if (draft.split != SideSplit.None)
             {
                 draft.splitBlendWidth = EditorGUILayout.FloatField(new GUIContent("境目のぼかし幅 (m)",
@@ -1968,18 +1963,6 @@ namespace AzipaWorks.BlendshapeEditor
                     EditorGUI.BeginChangeCheck();
                     previewValue = EditorGUILayout.Slider("新シェイプの値", previewValue, 0f, 100f);
                     if (EditorGUI.EndChangeCheck()) _weightOnly = true;
-
-                    if (draft.split == SideSplit.Both)
-                    {
-                        EditorGUI.BeginChangeCheck();
-                        using (new EditorGUILayout.HorizontalScope())
-                        {
-                            EditorGUILayout.PrefixLabel("表示する側");
-                            previewSide = GUILayout.Toolbar(previewSide, new[] { "両方", "左 (_L)", "右 (_R)" });
-                        }
-
-                        if (EditorGUI.EndChangeCheck()) _dirty = true;
-                    }
                 }
             }
         }
@@ -2127,7 +2110,6 @@ namespace AzipaWorks.BlendshapeEditor
                                 EditorStyles.miniLabel);
                         if (d.split == SideSplit.LeftOnly) EditorGUILayout.LabelField("左側のみ", EditorStyles.miniLabel);
                         if (d.split == SideSplit.RightOnly) EditorGUILayout.LabelField("右側のみ", EditorStyles.miniLabel);
-                        if (d.split == SideSplit.Both) EditorGUILayout.LabelField("左右に分けて作成", EditorStyles.miniLabel);
 
                         if (missing.Count > 0)
                             EditorGUILayout.HelpBox(

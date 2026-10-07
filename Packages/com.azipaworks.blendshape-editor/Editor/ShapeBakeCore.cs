@@ -15,9 +15,6 @@ namespace AzipaWorks.BlendshapeEditor
 
     internal static class ShapeBakeCore
     {
-        public const string LeftSuffix = "_L";
-        public const string RightSuffix = "_R";
-
         internal struct Frame
         {
             public float weight;
@@ -121,24 +118,13 @@ namespace AzipaWorks.BlendshapeEditor
             {
                 case SideSplit.LeftOnly: return new List<BakedShape> { Masked(full, outputName, leftMask, false) };
                 case SideSplit.RightOnly: return new List<BakedShape> { Masked(full, outputName, leftMask, true) };
-                case SideSplit.Both:
-                    return new List<BakedShape>
-                    {
-                        Masked(full, outputName + LeftSuffix, leftMask, false),
-                        Masked(full, outputName + RightSuffix, leftMask, true),
-                    };
                 default: return new List<BakedShape> { full };
             }
         }
 
         public static IEnumerable<string> OutputNames(string outputName, SideSplit split)
         {
-            if (split == SideSplit.Both)
-            {
-                yield return outputName + LeftSuffix;
-                yield return outputName + RightSuffix;
-            }
-            else yield return outputName;
+            yield return outputName;
         }
 
         private static BakedShape Masked(BakedShape src, string name, float[] leftMask, bool right)
@@ -201,7 +187,7 @@ namespace AzipaWorks.BlendshapeEditor
             return d.sources.Any(s => !string.IsNullOrEmpty(s.shapeName) && baseMesh.GetBlendShapeIndex(s.shapeName) >= 0);
         }
 
-        /// <summary>定義が作るシェイプ名（見出しは名前 1 つ、左右両方なら _L / _R）</summary>
+        /// <summary>定義が作るシェイプ名</summary>
         public static IEnumerable<string> OutputNames(ShapeDefinition d) =>
             d.kind == ShapeKind.Separator
                 ? new[] { d.outputName.Trim() }

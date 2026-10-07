@@ -20,7 +20,6 @@ namespace AzipaWorks.BlendshapeEditor
         None,
         LeftOnly,
         RightOnly,
-        Both,
     }
 
     public enum ShapeKind
