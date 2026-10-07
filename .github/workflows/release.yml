@@ -56,7 +56,7 @@ jobs:
         run: find "${{ env.packagePath }}/" -name '*.meta' >> metaList
 
       - name: Create UnityPackage
-        uses: pCYSl5EDgo/create-unitypackage@v1.2.3
+        uses: pCYSl5EDgo/create-unitypackage@b5c57408698b1fab8b3a84d4b67f767b8b7c0be9 # v1.2.3
         with:
           package-path: ${{ env.unityPackage }}
           include-files: metaList
