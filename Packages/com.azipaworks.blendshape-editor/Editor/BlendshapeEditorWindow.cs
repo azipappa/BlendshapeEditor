@@ -24,7 +24,7 @@ namespace AzipaWorks.BlendshapeEditor
         private const string Title = "Blendshape Editor";
 
         /// <summary>ツールのバージョン（package.json の version と合わせる）</summary>
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
         private const string DefaultFolder = "Assets/BlendshapeEditor_Generated";
         private const string DefaultSuffix = "_orig";
         private const string TopToken = "\u0001TOP";
@@ -2820,8 +2820,20 @@ namespace AzipaWorks.BlendshapeEditor
             var oldBackups = recipe.baseMesh != null ? ShapeBakeCore.PlanBackups(recipe) : new List<(string, string)>();
             var userWeights = users.ToDictionary(u => u, u => RemapBackupWeights(WeightsByName(u), oldBackups, res.backups));
 
-            res.mesh.name = file.name;
-            EditorUtility.CopySerialized(res.mesh, file);
+            // CopySerialized で丸ごと書き換えると、Unity がブレンドシェイプの GPU 用データを作り直さず
+            // 古い並びのまま残ることがある（ウェイトが別のシェイプにかかり、メッシュが破綻する）。
+            // 頂点などは元メッシュの複製で変わらないので、ブレンドシェイプだけを API で積み直す。
+            if (file.vertexCount == res.mesh.vertexCount)
+            {
+                file.ClearBlendShapes();
+                CopyBlendShapes(res.mesh, file);
+            }
+            else
+            {
+                res.mesh.name = file.name;
+                EditorUtility.CopySerialized(res.mesh, file);
+            }
+
             Object.DestroyImmediate(res.mesh);
             WriteRecipe(recipe, face, definitions, suffix, res.order, header);
             EditorUtility.SetDirty(file);
@@ -2838,6 +2850,23 @@ namespace AzipaWorks.BlendshapeEditor
             }
 
             warnings.AddRange(res.warnings);
+        }
+
+        private static void CopyBlendShapes(Mesh src, Mesh dst)
+        {
+            int vc = src.vertexCount;
+            var v = new Vector3[vc];
+            var n = new Vector3[vc];
+            var t = new Vector3[vc];
+            for (int i = 0; i < src.blendShapeCount; i++)
+            {
+                string name = src.GetBlendShapeName(i);
+                for (int f = 0; f < src.GetBlendShapeFrameCount(i); f++)
+                {
+                    src.GetBlendShapeFrameVertices(i, f, v, n, t);
+                    dst.AddBlendShapeFrame(name, src.GetBlendShapeFrameWeight(i, f), v, n, t);
+                }
+            }
         }
 
         /// <summary>Avatar Descriptor の瞬き・視線がこのレンダラーのシェイプを使っていれば、その Descriptor の ID</summary>
