@@ -24,7 +24,7 @@ namespace AzipaWorks.BlendshapeEditor
         private const string Title = "Blendshape Editor";
 
         /// <summary>ツールのバージョン（package.json の version と合わせる）</summary>
-        public const string Version = "1.1.1";
+        public const string Version = "1.2.0";
         private const string DefaultFolder = "Assets/BlendshapeEditor_Generated";
         private const string DefaultSuffix = "_orig";
         private const string TopToken = "\u0001TOP";
@@ -1884,7 +1884,7 @@ namespace AzipaWorks.BlendshapeEditor
                     bool missing = !string.IsNullOrEmpty(s.shapeName) && baseMesh.GetBlendShapeIndex(s.shapeName) < 0;
                     var c = GUI.color;
                     if (missing) GUI.color = new Color(1f, 0.6f, 0.6f);
-                    ShapePicker(s.shapeName, T("(シェイプを選択)"), n =>
+                    ShapePicker(s.shapeName, T("(シェイプを選択)"), UsedSources(s), n =>
                     {
                         Undo.RecordObject(this, Title);
                         s.shapeName = n;
@@ -1914,12 +1914,19 @@ namespace AzipaWorks.BlendshapeEditor
                 GUI.changed = true;
             }
 
-            ShapePicker(null, T("＋ シェイプを追加"), n =>
+            ShapeMultiPicker(T("＋ シェイプを追加"), UsedSources(), names =>
             {
                 Undo.RecordObject(this, Title);
-                // 「0 以外の値が入っているシェイプだけから選ぶ」で選んだときは、今の値を打ち消す値で始める
-                draft.sources.Add(new SourceShape { shapeName = n, value = nonZeroOnly ? CancelValue(n) : 100f });
-                if (string.IsNullOrWhiteSpace(draft.outputName)) draft.outputName = n + "_custom";
+                var used = UsedSources();
+                foreach (var n in names)
+                {
+                    if (!used.Add(n)) continue; // 同じシェイプは二重に追加しない
+                    // 「0 以外の値が入っているシェイプだけから選ぶ」で選んだときは、今の値を打ち消す値で始める
+                    draft.sources.Add(new SourceShape { shapeName = n, value = nonZeroOnly ? CancelValue(n) : 100f });
+                }
+
+                if (string.IsNullOrWhiteSpace(draft.outputName) && names.Count > 0)
+                    draft.outputName = names[0] + "_custom";
                 OnPickerChange();
             }, EditorStyles.miniButton);
 
@@ -3093,13 +3100,13 @@ namespace AzipaWorks.BlendshapeEditor
             };
         }
 
-        private void ShapePicker(string current, string empty, Action<string> onSelect, GUIStyle style,
-            params GUILayoutOption[] options)
-        {
-            var label = new GUIContent(string.IsNullOrEmpty(current) ? empty : current);
-            var rect = GUILayoutUtility.GetRect(label, style, options);
-            if (!GUI.Button(rect, label, style)) return;
+        /// <summary>元にするシェイプとして選択済みの名前（except の行は除く）</summary>
+        private HashSet<string> UsedSources(SourceShape except = null) =>
+            new HashSet<string>(draft.sources.Where(x => x != except && !string.IsNullOrEmpty(x.shapeName))
+                .Select(x => x.shapeName));
 
+        private List<(string name, string label)> PickerItems()
+        {
             var items = new List<(string name, string label)>();
             for (int i = 0; i < baseMesh.blendShapeCount; i++)
             {
@@ -3110,8 +3117,30 @@ namespace AzipaWorks.BlendshapeEditor
                 items.Add((n, nz ? $"{n}    ({w:0.#})" : n));
             }
 
-            new ShapeNameDropdown(items, onSelect,
-                nonZeroOnly ? T("{0} 上で値が入っているシェイプはありません", targetRenderer.name) : T("シェイプキーがありません")).Show(rect);
+            return items;
+        }
+
+        private string PickerEmptyMessage() =>
+            nonZeroOnly ? T("{0} 上で値が入っているシェイプはありません", targetRenderer.name) : T("シェイプキーがありません");
+
+        /// <summary>1 つだけ選ぶ（選択済みのシェイプは選べない）</summary>
+        private void ShapePicker(string current, string empty, ISet<string> used, Action<string> onSelect,
+            GUIStyle style, params GUILayoutOption[] options)
+        {
+            var label = new GUIContent(string.IsNullOrEmpty(current) ? empty : current);
+            var rect = GUILayoutUtility.GetRect(label, style, options);
+            if (!GUI.Button(rect, label, style)) return;
+            new ShapeNameDropdown(PickerItems(), onSelect, PickerEmptyMessage(), used).Show(rect);
+        }
+
+        /// <summary>まとめて選ぶ（Ctrl / Shift で複数選択、選択済みのシェイプは選べない）</summary>
+        private void ShapeMultiPicker(string text, ISet<string> used, Action<List<string>> onAdd, GUIStyle style,
+            params GUILayoutOption[] options)
+        {
+            var label = new GUIContent(text);
+            var rect = GUILayoutUtility.GetRect(label, style, options);
+            if (!GUI.Button(rect, label, style)) return;
+            PopupWindow.Show(rect, new ShapeMultiPickerPopup(PickerItems(), used, onAdd, PickerEmptyMessage()));
         }
 
         // ------------------------------------------------------------------ preview state
@@ -3324,13 +3353,17 @@ namespace AzipaWorks.BlendshapeEditor
         private readonly List<(string name, string label)> _items;
         private readonly Action<string> _onSelect;
         private readonly string _emptyMessage;
+        private readonly ISet<string> _disabled;
 
-        public ShapeNameDropdown(List<(string name, string label)> items, Action<string> onSelect, string emptyMessage)
+        /// <param name="disabled">選べない名前（選択済みのシェイプなど）</param>
+        public ShapeNameDropdown(List<(string name, string label)> items, Action<string> onSelect, string emptyMessage,
+            ISet<string> disabled = null)
             : base(new AdvancedDropdownState())
         {
             _items = items;
             _onSelect = onSelect;
             _emptyMessage = emptyMessage;
+            _disabled = disabled;
             minimumSize = new Vector2(280, 420);
         }
 
@@ -3339,13 +3372,183 @@ namespace AzipaWorks.BlendshapeEditor
             var root = new AdvancedDropdownItem(T("シェイプキー"));
             if (_items.Count == 0)
                 root.AddChild(new AdvancedDropdownItem(_emptyMessage) { id = -1, enabled = false });
-            for (int i = 0; i < _items.Count; i++) root.AddChild(new AdvancedDropdownItem(_items[i].label) { id = i });
+            for (int i = 0; i < _items.Count; i++)
+            {
+                bool off = _disabled != null && _disabled.Contains(_items[i].name);
+                root.AddChild(new AdvancedDropdownItem(off ? _items[i].label + T("    (追加済み)") : _items[i].label)
+                    { id = i, enabled = !off });
+            }
+
             return root;
         }
 
         protected override void ItemSelected(AdvancedDropdownItem item)
         {
-            if (item.id >= 0 && item.id < _items.Count) _onSelect(_items[item.id].name);
+            if (item.id >= 0 && item.id < _items.Count && item.enabled) _onSelect(_items[item.id].name);
+        }
+    }
+
+    /// <summary>
+    /// シェイプをまとめて選んで追加するポップアップ。
+    /// クリックで選択、Ctrl（Mac は Cmd）+ クリックで追加選択、Shift + クリックで範囲選択、ダブルクリックでそのまま追加。
+    /// 選択済みのシェイプは表示するが選べない。
+    /// </summary>
+    internal class ShapeMultiPickerPopup : PopupWindowContent
+    {
+        private const float RowHeight = 20f;
+
+        private readonly List<(string name, string label)> _items;
+        private readonly ISet<string> _used;
+        private readonly Action<List<string>> _onAdd;
+        private readonly string _emptyMessage;
+        private readonly HashSet<int> _selected = new HashSet<int>();
+        private int _anchor = -1;
+        private string _search = "";
+        private Vector2 _scroll;
+        private SearchField _searchField;
+
+        public ShapeMultiPickerPopup(List<(string name, string label)> items, ISet<string> used,
+            Action<List<string>> onAdd, string emptyMessage)
+        {
+            _items = items;
+            _used = used ?? new HashSet<string>();
+            _onAdd = onAdd;
+            _emptyMessage = emptyMessage;
+        }
+
+        public override Vector2 GetWindowSize() => new Vector2(320, 440);
+
+        public override void OnOpen()
+        {
+            _searchField = new SearchField();
+            _searchField.SetFocus();
+            editorWindow.wantsMouseMove = true;
+        }
+
+        private bool IsUsed(int i) => _used.Contains(_items[i].name);
+
+        private List<int> Visible()
+        {
+            var list = new List<int>();
+            for (int i = 0; i < _items.Count; i++)
+                if (string.IsNullOrEmpty(_search) ||
+                    _items[i].name.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0)
+                    list.Add(i);
+            return list;
+        }
+
+        public override void OnGUI(Rect rect)
+        {
+            var e = Event.current;
+            if (e.type == EventType.KeyDown)
+            {
+                if ((e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter) && _selected.Count > 0)
+                {
+                    e.Use();
+                    Add();
+                    return;
+                }
+
+                if (e.keyCode == KeyCode.Escape)
+                {
+                    e.Use();
+                    editorWindow.Close();
+                    return;
+                }
+            }
+
+            GUILayout.Label(T("シェイプキー"), EditorStyles.boldLabel);
+            var searchRect = GUILayoutUtility.GetRect(0, EditorGUIUtility.singleLineHeight, GUILayout.ExpandWidth(true));
+            var search = _searchField.OnGUI(searchRect, _search);
+            if (search != _search)
+            {
+                _search = search;
+                _selected.RemoveWhere(i => !Visible().Contains(i)); // 見えなくなったものは選択から外す
+            }
+
+            var visible = Visible();
+            var selectable = visible.Where(i => !IsUsed(i)).ToList();
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(selectable.Count == 0))
+                    if (GUILayout.Button(T("表示中をすべて選択"), EditorStyles.miniButtonLeft))
+                        _selected.UnionWith(selectable);
+                using (new EditorGUI.DisabledScope(_selected.Count == 0))
+                    if (GUILayout.Button(T("選択解除"), EditorStyles.miniButtonRight))
+                        _selected.Clear();
+            }
+
+            GUILayout.Label(T("Ctrl / Shift + クリックで複数選択、ダブルクリックで追加"), EditorStyles.miniLabel);
+
+            _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.ExpandHeight(true));
+            if (_items.Count == 0) GUILayout.Label(_emptyMessage, EditorStyles.centeredGreyMiniLabel);
+            else if (visible.Count == 0) GUILayout.Label(T("一致するシェイプはありません"), EditorStyles.centeredGreyMiniLabel);
+            foreach (var i in visible)
+            {
+                var r = GUILayoutUtility.GetRect(0, RowHeight, GUILayout.ExpandWidth(true));
+                bool used = IsUsed(i);
+                if (e.type == EventType.Repaint)
+                {
+                    if (_selected.Contains(i)) EditorGUI.DrawRect(r, new Color(0.24f, 0.48f, 0.90f, 0.45f));
+                    else if (!used && r.Contains(e.mousePosition)) EditorGUI.DrawRect(r, new Color(0.5f, 0.5f, 0.5f, 0.2f));
+                }
+
+                using (new EditorGUI.DisabledScope(used))
+                    GUI.Label(new Rect(r.x + 6, r.y, r.width - 6, r.height),
+                        used ? _items[i].label + T("    (追加済み)") : _items[i].label);
+
+                if (used || e.type != EventType.MouseDown || e.button != 0 || !r.Contains(e.mousePosition)) continue;
+                if (e.clickCount >= 2)
+                {
+                    _selected.Add(i);
+                    e.Use();
+                    Add();
+                    GUIUtility.ExitGUI();
+                }
+
+                Click(i, e, visible);
+                e.Use();
+            }
+
+            EditorGUILayout.EndScrollView();
+
+            using (new EditorGUI.DisabledScope(_selected.Count == 0))
+                if (GUILayout.Button(T("選択した {0} 個を追加", _selected.Count), GUILayout.Height(24)))
+                    Add();
+
+            if (e.type == EventType.MouseMove) editorWindow.Repaint();
+        }
+
+        private void Click(int i, Event e, List<int> visible)
+        {
+            bool toggle = EditorGUI.actionKey; // Windows は Ctrl、Mac は Cmd
+            if (e.shift && _anchor >= 0 && visible.Contains(_anchor))
+            {
+                int a = visible.IndexOf(_anchor), b = visible.IndexOf(i);
+                if (!toggle) _selected.Clear();
+                for (int k = Mathf.Min(a, b); k <= Mathf.Max(a, b); k++)
+                    if (!IsUsed(visible[k])) _selected.Add(visible[k]);
+                return;
+            }
+
+            if (toggle)
+            {
+                if (!_selected.Remove(i)) _selected.Add(i);
+            }
+            else
+            {
+                _selected.Clear();
+                _selected.Add(i);
+            }
+
+            _anchor = i;
+        }
+
+        private void Add()
+        {
+            var names = _selected.OrderBy(i => i).Select(i => _items[i].name).ToList();
+            editorWindow.Close();
+            _onAdd(names);
         }
     }
 }

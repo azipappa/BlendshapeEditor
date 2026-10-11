@@ -561,6 +561,12 @@ namespace AzipaWorks.BlendshapeEditor
             { "    (作成済み)", new[] { "    (created)", "    （已创建）", "    (만듦)" } },
             { "{0} 上で値が入っているシェイプはありません", new[] { "No shapes have a value on {0}", "{0} 上没有已设置值的形态键", "{0}에서 값이 들어 있는 셰이프가 없습니다" } },
             { "シェイプキー", new[] { "Shape Keys", "形态键", "셰이프 키" } },
+            { "    (追加済み)", new[] { "    (added)", "    （已添加）", "    (추가됨)" } },
+            { "表示中をすべて選択", new[] { "Select All Shown", "全选当前显示的项", "표시된 항목 모두 선택" } },
+            { "選択解除", new[] { "Clear Selection", "取消选择", "선택 해제" } },
+            { "Ctrl / Shift + クリックで複数選択、ダブルクリックで追加", new[] { "Ctrl / Shift + click to select multiple, double-click to add", "Ctrl / Shift + 单击可多选，双击直接添加", "Ctrl / Shift + 클릭으로 여러 개 선택, 더블클릭으로 추가" } },
+            { "一致するシェイプはありません", new[] { "No matching shapes", "没有匹配的形态键", "일치하는 셰이프가 없습니다" } },
+            { "選択した {0} 個を追加", new[] { "Add {0} Selected", "添加所选的 {0} 个", "선택한 {0}개 추가" } },
         };
     }
 }
